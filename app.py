@@ -12,7 +12,8 @@ import pandas as pd
 # Use the Agg backend for Matplotlib
 matplotlib.use('Agg')
 
-app = Flask(__name__, template_folder='C:\\Users\\P0037596\\AI PDF Sum\\Stock\\templates')
+app = Flask(__name__, template_folder='templates')
+
 
 # Path to the JSON file
 DATA_FILE = 'data.json'
