@@ -225,5 +225,6 @@ def edit():
      data = load_data()
      return render_template('index.html', default_tickers=data['default_tickers'], default_watch_list=data['default_watch_list'])
 
-if __name__ == '__main__':
-    app.run(debug=True)
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
