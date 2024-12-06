@@ -1,0 +1,56 @@
+{
+	"folders": [
+		{
+			"path": "../AI PDF Sum"
+		}
+	],
+	"launch": {
+		"configurations": [
+			{
+				"type": "aws-sam",
+				"request": "direct-invoke",
+				"name": "getSumByDocId:lambda_function.lambda_handler (python3.13)",
+				"invokeTarget": {
+					"target": "code",
+					"projectRoot": "${workspaceFolder}/getSumByDocId",
+					"lambdaHandler": "lambda_function.lambda_handler"
+				},
+				"lambda": {
+					"runtime": "python3.13",
+					"payload": {},
+					"environmentVariables": {}
+				}
+			},
+			{
+				"type": "aws-sam",
+				"request": "direct-invoke",
+				"name": "getDocByDocID:lambda_function.lambda_handler (python3.12)",
+				"invokeTarget": {
+					"target": "code",
+					"projectRoot": "${workspaceFolder}/getDocByDocID",
+					"lambdaHandler": "lambda_function.lambda_handler"
+				},
+				"lambda": {
+					"runtime": "python3.12",
+					"payload": {},
+					"environmentVariables": {}
+				}
+			},
+			{
+				"type": "aws-sam",
+				"request": "direct-invoke",
+				"name": "docConsumer:lambda_function.lambda_handler (python3.13)",
+				"invokeTarget": {
+					"target": "code",
+					"projectRoot": "${workspaceFolder}/docConsumer",
+					"lambdaHandler": "lambda_function.lambda_handler"
+				},
+				"lambda": {
+					"runtime": "python3.13",
+					"payload": {},
+					"environmentVariables": {}
+				}
+			}
+		]
+	}
+}

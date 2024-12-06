@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Analysis</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <header class="bg-dark text-white text-center py-3">
+        <h1>Stock Analysis</h1>
+    </header>
+    <div class="container mt-4">
+        <form action="/results" method="post" onsubmit="showLoading()">
+            <h2>My Portfolio</h2>
+            <div class="form-group">
+                <label for="tickers">Enter stock tickers (comma-separated):</label>
+                <textarea class="form-control" name="tickers" id="tickers" rows="2" required>{{ default_tickers }}</textarea>
+            </div>
+            <h2>My Watch List</h2>
+            <div class="form-group">
+                <label for="watch_list">Enter watch list tickers (comma-separated):</label>
+                <textarea class="form-control" name="watch_list" id="watch_list" rows="2" required>{{ default_watch_list }}</textarea>
+            </div>
+            <div class="form-group">
+                <label for="period">Period for average price (days):</label>
+                <input class="form-control" type="number" name="period" id="period" value="152" required>
+            </div>
+            <div class="form-group">
+                <label for="watch_list_period">Period for watch list (days):</label>
+                <input class="form-control" type="number" name="watch_list_period" id="watch_list_period" value="150" required>
+            </div>
+            <div class="form-group">
+                <label for="watch_list_trend_days">Trend check period (days):</label>
+                <input class="form-control" type="number" name="watch_list_trend_days" id="watch_list_trend_days" value="30" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Analyze</button>
+        </form>
+        <div id="loading" class="loading" style="display: none;">
+            <p>Loading...</p>
+            <img src="{{ url_for('static', filename='loading_spinner.jpg') }}" alt="Loading...">
+        </div>
+    </div>
+    <script>
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+        }
+    </script>
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.11.0/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>

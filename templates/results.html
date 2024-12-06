@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Results</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <header class="bg-dark text-white text-center py-3">
+        <h1>Stock Analysis Results</h1>
+    </header>
+    <div class="container mt-4">
+        <button class="btn btn-secondary mb-3" onclick="window.location.href='/edit'">Edit</button>
+        
+        <div class="container">
+            <h2>My Portfolio</h2>
+            <div class="row">
+                {% for result in results if result.action not in ['Stay Away', 'Buy', 'Get Ready', 'Next Time'] %}
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <div class="card {% if result.action == 'Sell' %} bg-light-red {% endif %}">
+                        <div class="card-body">
+                            <h5 class="card-title"><a href="{{ result.external_link }}" target="_blank">{{ result.ticker }}</a></h5>
+                            <p class="card-text">Current Price: {{ result.current_price }}</p>
+                            <p class="card-text">Average Price: {{ result.average_price }}</p>
+                            <p class="card-text">Percentage Difference: {{ result.percentage_diff }}</p>
+                            {% if result.trend_status %}
+                            <p class="card-text">Trend Status: {{ result.trend_status }}</p>
+                            {% endif %}
+                            {% if result.plot_url %}
+                            <img src="{{ result.plot_url }}" alt="Plot for {{ result.ticker }}" class="img-fluid" onclick="openModal('{{ result.plot_url }}')">
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="container">
+            <h2>My Watch List</h2>
+            <div class="row">
+                {% for action in ['Buy', 'Get Ready', 'Next Time', 'Stay Away'] %}
+                    {% for result in results if result.action == action %}
+                    <div class="col-lg-4 col-md-6 mb-4">
+                        <div class="card 
+    {% if result.action == 'Sell' %} bg-light-red 
+    {% elif result.action == 'Buy' %} bg-light-green 
+    {% elif result.action == 'Get Ready' %} bg-light-orange 
+    {% elif result.action == 'Next Time' %} bg-light-pink 
+    {% elif result.action == 'Stay Away' %} bg-light-red 
+    {% endif %}">
+
+                            <div class="card-body">
+                                <h5 class="card-title"><a href="{{ result.external_link }}" target="_blank">{{ result.ticker }}</a></h5>
+                                <p class="card-text">Current Price: {{ result.current_price }}</p>
+                                <p class="card-text">Rolling Average Price: {{ result.average_price }}</p>
+                                <p class="card-text">Percentage Difference: {{ result.percentage_diff }}</p>                                
+                                <p class="card-text action-{{ result.action | lower | replace(' ', '-') }}">{{ result.action }}</p>
+                                {% if result.trend_status %}
+                                <p class="card-text">Trend Status: {{ result.trend_status }}</p>
+                                {% endif %}
+                                {% if result.plot_url %}
+                                <img src="{{ result.plot_url }}" alt="Plot for {{ result.ticker }}" class="img-fluid" onclick="openModal('{{ result.plot_url }}')">
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Structure -->
+    <div id="myModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <img id="modalImage" src="" alt="Chart" class="img-fluid">
+        </div>
+    </div>
+
+    <script>
+        function openModal(imageSrc) {
+            document.getElementById('modalImage').src = imageSrc;
+            document.getElementById('myModal').style.display = "block";
+        }
+
+        function closeModal() {
+            document.getElementById('myModal').style.display = "none";
+        }
+
+        // Close the modal if the user clicks outside of it
+        window.onclick = function(event) {
+            if (event.target == document.getElementById('myModal')) {
+                closeModal();
+            }
+        }
+    </script>
+</body>
+</html>
