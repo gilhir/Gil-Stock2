@@ -6,22 +6,27 @@
     <title>Stock Analysis</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 <body>
     <header class="bg-dark text-white text-center py-3">
         <h1>Stock Analysis</h1>
     </header>
     <div class="container mt-4">
-        <form action="/results" method="post" onsubmit="showLoading()">
+        <form action="/results" method="post">
             <h2>My Portfolio</h2>
             <div class="form-group">
+                <label for="user_id">User ID:</label>
+                <select class="form-control" name="user_id" id="user_id" required></select>
+            </div>
+            <div class="form-group">
                 <label for="tickers">Enter stock tickers (comma-separated):</label>
-                <textarea class="form-control" name="tickers" id="tickers" rows="2" required>{{ default_tickers }}</textarea>
+                <textarea class="form-control" name="tickers" id="tickers" rows="2" required></textarea>
             </div>
             <h2>My Watch List</h2>
             <div class="form-group">
                 <label for="watch_list">Enter watch list tickers (comma-separated):</label>
-                <textarea class="form-control" name="watch_list" id="watch_list" rows="2" required>{{ default_watch_list }}</textarea>
+                <textarea class="form-control" name="watch_list" id="watch_list" rows="2" required></textarea>
             </div>
             <div class="form-group">
                 <label for="period">Period for average price (days):</label>
@@ -37,15 +42,41 @@
             </div>
             <button type="submit" class="btn btn-primary">Analyze</button>
         </form>
-        <div id="loading" class="loading" style="display: none;">
-            <p>Loading...</p>
-            <img src="{{ url_for('static', filename='loading_spinner.jpg') }}" alt="Loading...">
-        </div>
     </div>
     <script>
-        function showLoading() {
-            document.getElementById('loading').style.display = 'block';
+        function loadUserIds() {
+            fetch('/user_data.json')
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data);
+                    var select = document.getElementById('user_id');
+                    Object.keys(data).forEach(userId => {
+                        var option = document.createElement('option');
+                        option.value = userId;
+                        option.text = userId;
+                        select.appendChild(option);
+                    });
+                })
+                .catch(error => console.error('Error:', error));
         }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadUserIds();
+            document.getElementById('user_id').addEventListener('change', function() {
+                var userId = this.value;
+                if (userId) {
+                    fetch('/user_data.json')
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data[userId]) {
+                                document.getElementById('tickers').value = data[userId]['default_tickers'];
+                                document.getElementById('watch_list').value = data[userId]['default_watch_list'];
+                            }
+                        })
+                        .catch(error => console.error('Error:', error));
+                }
+            });
+        });
     </script>
     <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.11.0/umd/popper.min.js"></script>

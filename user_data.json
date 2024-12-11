@@ -1,0 +1,18 @@
+{
+    "default_user": {
+        "default_tickers": "ARKX,XLK,XLF,ARKK",
+        "default_watch_list": "ARKK"
+    },
+    "Gil": {
+        "default_tickers": "ARKX,XLK,XLF,ARKK",
+        "default_watch_list": "ARKK"
+    },
+    "Tomer": {
+        "default_tickers": "TSLA,AMZN,DDOG,DECK,HACK,MU,NET,NFLX,NVDA,SHOP,SPY,TEAM",
+        "default_watch_list": "ARKK,ARKX"
+    },
+    "Yuval": {
+        "default_tickers": "ARKK,AMZN,DDOG,DECK,HACK,MU,NET,NFLX,NVDA,SHOP,SPY,TEAM",
+        "default_watch_list": "ARKK,ARKX"
+    }
+}
