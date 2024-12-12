@@ -17,7 +17,7 @@ def home():
 def results():
     try:
         user_id = request.form.get('user_id')
-        # Removed: print(f"Received user_id: {user_id}")
+        # Removed: print(f"Received user_id: {user_id}") will this work?
 
         tickers = [ticker.strip() for ticker in request.form.get('tickers', '').split(',')]
         watch_list = [ticker.strip() for ticker in request.form.get('watch_list', '').split(',')]
