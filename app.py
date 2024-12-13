@@ -17,7 +17,6 @@ def home():
 def results():
     try:
         user_id = request.form.get('user_id')
-        print(f"Received user_id: {user_id}")
 
         tickers = [ticker.strip() for ticker in request.form.get('tickers', '').split(',')]
         watch_list = [ticker.strip() for ticker in request.form.get('watch_list', '').split(',')]
@@ -25,15 +24,8 @@ def results():
         watch_list_period = int(request.form.get('watch_list_period', 150))
         watch_list_trend_days = int(request.form.get('watch_list_trend_days', 30))
 
-        # Validate ticker symbols
         tickers = [ticker if ticker != 'APPL' else 'AAPL' for ticker in tickers]
         watch_list = [ticker if ticker != 'APPL' else 'AAPL' for ticker in watch_list]
-
-        print(f"Tickers: {tickers}")
-        print(f"Watch List: {watch_list}")
-        print(f"Period: {period}")
-        print(f"Watch List Period: {watch_list_period}")
-        print(f"Watch List Trend Days: {watch_list_trend_days}")
 
         user_data = {
             "default_tickers": request.form.get('tickers', ''),
@@ -42,7 +34,12 @@ def results():
         user_data_utils.save_user_data(user_id, user_data)
 
         tickers_data = stock_utils.fetch_and_store_stock_data(tickers + watch_list, period + 150)
-        print(f"Fetched tickers_data for: {tickers + watch_list}")
+
+        # Log data for specific problematic tickers
+        problematic_tickers = ['UNH', 'TXN', 'TEL']
+        for ticker in problematic_tickers:
+            if ticker in tickers_data:
+                print(f"DEBUG: Data for {ticker}: {tickers_data[ticker]}")
 
         results = []
 
@@ -52,7 +49,10 @@ def results():
                 dates = close_prices.index[-50:].strftime('%Y-%m-%d').tolist()
                 last_50_closes = close_prices[-50:].tolist()
                 last_50_ma = close_prices.rolling(window=150).mean().iloc[-50:].tolist()
-                
+
+                if ticker in problematic_tickers:
+                    print(f"DEBUG: Chart data for {ticker}: Dates: {dates}, Closes: {last_50_closes}, MAs: {last_50_ma}")
+
                 if len(close_prices) < 150:
                     rolling_avg = None
                     percentage_diff = None
@@ -133,11 +133,9 @@ def results():
                     'dates': dates
                 })
 
-        print(f"Results: {results}")
-
         return render_template('results.html', results=results, user_id=user_id)
     except Exception as e:
-        print(f"Error processing request: {e}")
+        print(f"DEBUG: Error processing request: {e}")
         flash(f"An error occurred: {e}", "danger")
         return redirect(url_for('home'))
 
@@ -148,7 +146,7 @@ def edit():
         user_data = user_data_utils.load_user_data(user_id)
         return render_template('index.html', default_tickers=user_data[user_id]['default_tickers'], default_watch_list=user_data[user_id]['default_watch_list'])
     except Exception as e:
-        print(f"Error loading user data: {e}")
+        print(f"DEBUG: Error loading user data: {e}")
         flash(f"An error occurred: {e}", "danger")
         return redirect(url_for('home'))
 

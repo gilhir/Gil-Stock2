@@ -82,53 +82,87 @@
         </div>
     </div>
 
+    
     <script>
         function openModal(imageSrc) {
             document.getElementById('modalImage').src = imageSrc;
             document.getElementById('myModal').style.display = "block";
         }
-
+    
         function closeModal() {
             document.getElementById('myModal').style.display = "none";
         }
-
+    
         // Close the modal if the user clicks outside of it
         window.onclick = function(event) {
             if (event.target == document.getElementById('myModal')) {
                 closeModal();
             }
         }
-
-        {% for result in results %}
-        new Chart(document.getElementById('{{ result.ticker }}Chart').getContext('2d'), {
-            type: 'line',
-            data: {
-                labels: {{ result.dates | tojson }},
-                datasets: [{
-                    label: '{{ result.ticker }} Close Prices',
-                    data: {{ result.last_50_closes | tojson }},
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                    fill: false,
-                }, {
-                    label: '{{ result.ticker }} Moving Average',
-                    data: {{ result.last_50_ma | tojson }},
-                    borderColor: 'rgba(255, 159, 64, 1)',
-                    backgroundColor: 'rgba(255, 159, 64, 0.2)',
-                    fill: false,
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: false
+    
+        // Store existing chart instances
+        const charts = {};
+    
+        function createChart(chartId, labels, closePrices, movingAverages) {
+            const ctx = document.getElementById(chartId + 'Chart').getContext('2d');
+    
+            // Destroy existing chart if it exists
+            if (charts[chartId]) {
+                charts[chartId].destroy();
+            }
+    
+            const chartData = {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: chartId + ' Close Prices',
+                        data: closePrices,
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        fill: false,
+                    }, {
+                        label: chartId + ' Moving Average',
+                        data: movingAverages,
+                        borderColor: 'rgba(255, 159, 64, 1)',
+                        backgroundColor: 'rgba(255, 159, 64, 0.2)',
+                        fill: false,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: false
+                        }
                     }
                 }
-            }
-        });
+            };
+    
+            charts[chartId] = new Chart(ctx, chartData);
+    
+            // Debugging information
+            console.log('Rendering chart for:', chartId);
+            console.log('Labels:', labels);
+            console.log('Close Prices:', closePrices);
+            console.log('Moving Averages:', movingAverages);
+        }
+    
+        {% for result in results %}
+        createChart(
+            '{{ result.ticker }}',
+            {{ result.dates | tojson }},
+            {{ result.last_50_closes | tojson }},
+            {{ result.last_50_ma | tojson }}
+        );
         {% endfor %}
     </script>
+    
+    
+
+    
+    
+    
 </body>
 </html>

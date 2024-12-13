@@ -31,7 +31,7 @@ def parse_stock_data(data):
     close_prices = data['chart']['result'][0]['indicators']['quote'][0]['close']
     df = pd.DataFrame({'timestamp': timestamp, 'close': close_prices})
     df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s')
-    print(f"Parsed data: {df.head()}")
+    print(f"Parsed data for {data['chart']['result'][0]['meta']['symbol']}: {df.head()}")
     return df
 
 def create_chart_js_script(ticker, df, rolling_window):
@@ -81,10 +81,11 @@ def generate_plot_html(tickers, rolling_window=150):
         data = fetch_stock_data(ticker)
         if data:
             df = parse_stock_data(data)
+            print(f"DEBUG: Data for {ticker}: {df}")
             html += f'<canvas id="{ticker}Chart"></canvas>'
             html += create_chart_js_script(ticker, df, rolling_window)
         else:
             print(f"No data found for {ticker}")
 
-    print(f"Generated HTML: {html}")
+    print(f"Generated HTML for tickers: {tickers}")
     return html
