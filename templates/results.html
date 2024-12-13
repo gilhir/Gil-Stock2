@@ -1,4 +1,3 @@
-@ -0,0 +1,101 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,6 +5,8 @@
     <title>Results</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style> .chart-container { position: relative; width: 100%; height: 400px; /* Adjust this value as needed */ } .chart-canvas { width: 100% !important; height: 1000% !important; } </style>
 </head>
 <body>
     <header class="bg-dark text-white text-center py-3">
@@ -28,9 +29,9 @@
                             {% if result.trend_status %}
                             <p class="card-text">Trend Status: {{ result.trend_status }}</p>
                             {% endif %}
-                            {% if result.plot_url %}
-                            <img src="{{ result.plot_url }}" alt="Plot for {{ result.ticker }}" class="img-fluid" onclick="openModal('{{ result.plot_url }}')">
-                            {% endif %}
+                            <div class="chart-container" style="position: relative; height:240px; width:auto">
+                                <canvas id="{{ result.ticker }}Chart"></canvas>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -61,9 +62,9 @@
                                 {% if result.trend_status %}
                                 <p class="card-text">Trend Status: {{ result.trend_status }}</p>
                                 {% endif %}
-                                {% if result.plot_url %}
-                                <img src="{{ result.plot_url }}" alt="Plot for {{ result.ticker }}" class="img-fluid" onclick="openModal('{{ result.plot_url }}')">
-                                {% endif %}
+                                <div class="chart-container" style="position: relative; height:240px; width:auto">
+                                    <canvas id="{{ result.ticker }}Chart"></canvas>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -97,6 +98,37 @@
                 closeModal();
             }
         }
+
+        {% for result in results %}
+        new Chart(document.getElementById('{{ result.ticker }}Chart').getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: {{ result.dates | tojson }},
+                datasets: [{
+                    label: '{{ result.ticker }} Close Prices',
+                    data: {{ result.last_50_closes | tojson }},
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    fill: false,
+                }, {
+                    label: '{{ result.ticker }} Moving Average',
+                    data: {{ result.last_50_ma | tojson }},
+                    borderColor: 'rgba(255, 159, 64, 1)',
+                    backgroundColor: 'rgba(255, 159, 64, 0.2)',
+                    fill: false,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: false
+                    }
+                }
+            }
+        });
+        {% endfor %}
     </script>
 </body>
 </html>

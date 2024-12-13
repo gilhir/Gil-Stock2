@@ -18,11 +18,23 @@ def fetch_and_store_stock_data(tickers, period):
                 new_data = ticker_data[ticker]
                 stored_data = data["historical_data"].get(ticker, {"prices": [], "last_updated": None})
 
+                last_updated = stored_data.get("last_updated")
+                if last_updated:
+                    last_updated_date = datetime.datetime.strptime(last_updated, "%Y-%m-%d").date()
+                else:
+                    last_updated_date = None
+
+                # Check if the data is up-to-date
+                if last_updated_date == end_date:
+                    print(f"Data for {ticker} is up-to-date.")
+                    continue
+
                 if not new_data.empty:
                     for date, row in new_data.iterrows():
                         stored_data["prices"].append({"date": date.strftime("%Y-%m-%d"), "close": row["Close"]})
                     stored_data["last_updated"] = end_date.strftime("%Y-%m-%d")
 
+                    # Ensure we only keep data within the required range
                     stored_data["prices"] = [
                         entry for entry in stored_data["prices"]
                         if datetime.datetime.strptime(entry["date"], "%Y-%m-%d").date() >= start_date

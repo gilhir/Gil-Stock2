@@ -17,7 +17,7 @@ def home():
 def results():
     try:
         user_id = request.form.get('user_id')
-        # Removed: print(f"Received user_id: {user_id}") will this work?
+        print(f"Received user_id: {user_id}")
 
         tickers = [ticker.strip() for ticker in request.form.get('tickers', '').split(',')]
         watch_list = [ticker.strip() for ticker in request.form.get('watch_list', '').split(',')]
@@ -25,7 +25,15 @@ def results():
         watch_list_period = int(request.form.get('watch_list_period', 150))
         watch_list_trend_days = int(request.form.get('watch_list_trend_days', 30))
 
-        # Removed debug prints for form values
+        # Validate ticker symbols
+        tickers = [ticker if ticker != 'APPL' else 'AAPL' for ticker in tickers]
+        watch_list = [ticker if ticker != 'APPL' else 'AAPL' for ticker in watch_list]
+
+        print(f"Tickers: {tickers}")
+        print(f"Watch List: {watch_list}")
+        print(f"Period: {period}")
+        print(f"Watch List Period: {watch_list_period}")
+        print(f"Watch List Trend Days: {watch_list_trend_days}")
 
         user_data = {
             "default_tickers": request.form.get('tickers', ''),
@@ -34,13 +42,17 @@ def results():
         user_data_utils.save_user_data(user_id, user_data)
 
         tickers_data = stock_utils.fetch_and_store_stock_data(tickers + watch_list, period + 150)
-        # Removed: print(f"Fetched tickers_data for: {tickers + watch_list}")
+        print(f"Fetched tickers_data for: {tickers + watch_list}")
 
         results = []
 
         for ticker in tickers:
-            if ticker in tickers_data:
+            if ticker in tickers_data and tickers_data[ticker] is not None:
                 close_prices = tickers_data[ticker]
+                dates = close_prices.index[-50:].strftime('%Y-%m-%d').tolist()
+                last_50_closes = close_prices[-50:].tolist()
+                last_50_ma = close_prices.rolling(window=150).mean().iloc[-50:].tolist()
+                
                 if len(close_prices) < 150:
                     rolling_avg = None
                     percentage_diff = None
@@ -62,12 +74,19 @@ def results():
                     'average_price': f"${rolling_avg:.2f}" if rolling_avg else "N/A",
                     'percentage_diff': f"{percentage_diff:.2f}%" if percentage_diff else "N/A",
                     'action': action,
-                    'external_link': f"https://finance.yahoo.com/quote/{ticker}/chart"
+                    'external_link': f"https://finance.yahoo.com/quote/{ticker}/chart",
+                    'last_50_closes': last_50_closes,
+                    'last_50_ma': last_50_ma,
+                    'dates': dates
                 })
 
         for ticker in watch_list:
-            if ticker in tickers_data:
+            if ticker in tickers_data and tickers_data[ticker] is not None:
                 close_prices = tickers_data[ticker]
+                dates = close_prices.index[-50:].strftime('%Y-%m-%d').tolist()
+                last_50_closes = close_prices[-50:].tolist()
+                last_50_ma = close_prices.rolling(window=150).mean().iloc[-50:].tolist()
+                
                 if len(close_prices) < 150:
                     rolling_avg = None
                     percentage_diff = None
@@ -88,7 +107,7 @@ def results():
                 if trend_status == "Not upward":
                     action = "Stay Away"
                 elif trend_status == "Upward":
-                    if percentage_diff is not None and (-1.5 < percentage_diff < 1.5 ) and current_price > rolling_avg:
+                    if percentage_diff is not None and (-1.5 < percentage_diff < 1.5) and current_price > rolling_avg:
                         action = "Buy"
                     elif percentage_diff is not None and -2 < percentage_diff < 2 and current_price < rolling_avg:
                         action = "Get Ready"
@@ -99,16 +118,22 @@ def results():
                 else:
                     action = ""
 
-                plot_url = plot_utils.plot_stock_and_rolling_average(ticker, close_prices, period)
                 external_link = f"https://finance.yahoo.com/quote/{ticker}/chart"
 
-                results.append({'ticker': ticker, 'current_price': f"${current_price:.2f}" if current_price else "N/A",
-                                'average_price': f"${rolling_avg:.2f}" if rolling_avg else "N/A",
-                                'percentage_diff': f"{percentage_diff:.2f}%" if percentage_diff else "N/A",
-                                'action': action, 'trend_status': trend_status, 
-                                'plot_url': plot_url, 'external_link': external_link})
+                results.append({
+                    'ticker': ticker,
+                    'current_price': f"${current_price:.2f}" if current_price else "N/A",
+                    'average_price': f"${rolling_avg:.2f}" if rolling_avg else "N/A",
+                    'percentage_diff': f"{percentage_diff:.2f}%" if percentage_diff else "N/A",
+                    'action': action,
+                    'trend_status': trend_status,
+                    'external_link': external_link,
+                    'last_50_closes': last_50_closes,
+                    'last_50_ma': last_50_ma,
+                    'dates': dates
+                })
 
-        # Removed: print(f"Results: {results}")
+        print(f"Results: {results}")
 
         return render_template('results.html', results=results, user_id=user_id)
     except Exception as e:
@@ -120,7 +145,6 @@ def results():
 def edit():
     try:
         user_id = request.args.get('user_id', 'default_user')
-        # Removed: print(f"Received user_id in edit: {user_id}")
         user_data = user_data_utils.load_user_data(user_id)
         return render_template('index.html', default_tickers=user_data[user_id]['default_tickers'], default_watch_list=user_data[user_id]['default_watch_list'])
     except Exception as e:
@@ -135,5 +159,3 @@ def user_data():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
-
-

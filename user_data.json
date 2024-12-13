@@ -4,14 +4,18 @@
         "default_watch_list": "ARKK"
     },
     "Gil": {
-        "default_tickers": "ARKX,XLK,XLF,ARKK",
-        "default_watch_list": "ARKK"
+        "default_tickers": "ARKX,XLK,XLF,ARKK,NET",
+        "default_watch_list": "APPL"
     },
     "Tomer": {
-        "default_tickers": "TSLA,AMZN,DDOG,DECK,HACK,MU,NET,NFLX,NVDA,SHOP,SPY,TEAM",
+        "default_tickers": "nvda,TSLA,AMZN,DDOG,DECK,HACK,MU,NET,NFLX,NVDA,SHOP,SPY,TEAM",
         "default_watch_list": "ARKK,ARKX"
     },
     "Yuval": {
+        "default_tickers": "ARKK,AMZN,DDOG,DECK,HACK,MU,NET,NFLX,NVDA,SHOP,SPY,TEAM,AAPL",
+        "default_watch_list": "ARKK,ARKX"
+    },
+    "BiGlist": {
         "default_tickers": "ARKK,AMZN,DDOG,DECK,HACK,MU,NET,NFLX,NVDA,SHOP,SPY,TEAM",
         "default_watch_list": "ARKK,ARKX"
     }
