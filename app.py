@@ -20,6 +20,11 @@ def results():
 
         tickers = [ticker.strip() for ticker in request.form.get('tickers', '').split(',')]
         watch_list = [ticker.strip() for ticker in request.form.get('watch_list', '').split(',')]
+        
+        # Remove duplicate tickers
+        tickers = list(set(tickers))
+        watch_list = list(set(watch_list))
+
         period = int(request.form.get('period', 150))
         watch_list_period = int(request.form.get('watch_list_period', 150))
         watch_list_trend_days = int(request.form.get('watch_list_trend_days', 30))
@@ -41,10 +46,14 @@ def results():
             if ticker in tickers_data:
                 print(f"DEBUG: Data for {ticker}: {tickers_data[ticker]}")
 
-        results = []
+        results = {
+            "portfolio": [],
+            "watch_list": [],
+            "missing": []
+        }
 
         for ticker in tickers:
-            if ticker in tickers_data and tickers_data[ticker] is not None:
+            if ticker in tickers_data and not tickers_data[ticker].empty:
                 close_prices = tickers_data[ticker]
                 dates = close_prices.index[-50:].strftime('%Y-%m-%d').tolist()
                 last_50_closes = close_prices[-50:].tolist()
@@ -68,7 +77,7 @@ def results():
                     percentage_diff = None
                     action = "Insufficient Data"
 
-                results.append({
+                results["portfolio"].append({
                     'ticker': ticker,
                     'current_price': f"${current_price:.2f}" if current_price else "N/A",
                     'average_price': f"${rolling_avg:.2f}" if rolling_avg else "N/A",
@@ -79,9 +88,11 @@ def results():
                     'last_50_ma': last_50_ma,
                     'dates': dates
                 })
+            else:
+                results["missing"].append(ticker)
 
         for ticker in watch_list:
-            if ticker in tickers_data and tickers_data[ticker] is not None:
+            if ticker in tickers_data and not tickers_data[ticker].empty:
                 close_prices = tickers_data[ticker]
                 dates = close_prices.index[-50:].strftime('%Y-%m-%d').tolist()
                 last_50_closes = close_prices[-50:].tolist()
@@ -114,13 +125,13 @@ def results():
                     elif percentage_diff is not None and percentage_diff > 1.5 and current_price > rolling_avg:
                         action = "Next Time"
                     else:
-                        action = ""
+                        action = "Non relevant"
                 else:
-                    action = ""
+                    action = "Non relevant"
 
                 external_link = f"https://finance.yahoo.com/quote/{ticker}/chart"
 
-                results.append({
+                results["watch_list"].append({
                     'ticker': ticker,
                     'current_price': f"${current_price:.2f}" if current_price else "N/A",
                     'average_price': f"${rolling_avg:.2f}" if rolling_avg else "N/A",
@@ -132,8 +143,10 @@ def results():
                     'last_50_ma': last_50_ma,
                     'dates': dates
                 })
+            else:
+                results["missing"].append(ticker)
 
-        return render_template('results.html', results=results, user_id=user_id)
+        return render_template('results.html', results=results, missing_tickers=results["missing"], user_id=user_id)
     except Exception as e:
         print(f"DEBUG: Error processing request: {e}")
         flash(f"An error occurred: {e}", "danger")
