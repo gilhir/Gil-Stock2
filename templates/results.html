@@ -89,7 +89,7 @@
                                 {% if result.trend_status %}
                                 <p class="card-text">Trend Status: {{ result.trend_status }}</p>
                                 {% endif %}
-                                <div class="chart-container">
+                                <div class="chart-container" style="position: relative; height:240px; width:auto">
                                     <canvas id="{{ result.ticker }}WatchListChart"></canvas>
                                 </div>
                             </div>
@@ -180,10 +180,22 @@
                     ]
                 },
                 options: {
+                    plugins:{
+   legend: {
+    display: false
+   }
+  },
                     responsive: true,
                     maintainAspectRatio: false,
                     scales: {
                         y: { beginAtZero: false }
+                    },
+                    tooltips: {
+                        callbacks: {
+                            label: function(tooltipItem) {
+                                return tooltipItem.yLabel;
+                            }
+                        }
                     }
                 }
             };

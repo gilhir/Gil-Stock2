@@ -4,8 +4,8 @@
         "default_watch_list": "AMZN"
     },
     "Gil": {
-        "default_tickers": "ARKX,XLK,XLF,ARKK,NET,SMCI",
-        "default_watch_list": "APPL,NVDA"
+        "default_tickers": "XLK,XLF,SMH,BITO,ARKK,ISPY,SPY,SCHD,ICF,CAPE,VDE,VNM",
+        "default_watch_list": "NVDA,QCLN,INDY,EEM"
     },
     "Tomer": {
         "default_tickers": "NVDA,TSLA,AMZN,DDOG,DECK,HACK,MU,NET,NFLX,NVDA,SHOP,SPY,TEAM",

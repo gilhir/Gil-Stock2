@@ -131,7 +131,7 @@
                 <label for="tickers">Enter stock tickers (comma-separated):</label>
                 <div class="input-container" id="tickers-container">
                     <div class="input-box">
-                        <input type="text" id="tickers-input" placeholder="Type stock tickers..." onkeydown="handleKeyDown(event, 'tickers-container')">
+                        <input type="text" id="tickers-input" placeholder="Type stock tickers..." oninput="handleInput(event, 'tickers-container')">
                     </div>
                 </div>
                 <textarea class="form-control" name="tickers" id="tickers" rows="2" style="display: none;" required></textarea>
@@ -141,7 +141,7 @@
                 <label for="watch_list">Enter watch list tickers (comma-separated):</label>
                 <div class="input-container" id="watch-list-container">
                     <div class="input-box">
-                        <input type="text" id="watch-list-input" placeholder="Type watch list tickers..." onkeydown="handleKeyDown(event, 'watch-list-container')">
+                        <input type="text" id="watch-list-input" placeholder="Type watch list tickers..." oninput="handleInput(event, 'watch-list-container')">
                     </div>
                 </div>
                 <textarea class="form-control" name="watch_list" id="watch_list" rows="2" style="display: none;" required></textarea>
@@ -179,31 +179,38 @@
                 .catch(error => console.error('Error:', error));
         }
 
-        // Handle keydown events for adding stocks to the list
-        function handleKeyDown(event, containerId) {
+        // Handle input events for adding stocks to the list
+        function handleInput(event, containerId) {
             const input = event.target;
             const container = document.getElementById(containerId);
             const textarea = document.getElementById(containerId === 'tickers-container' ? 'tickers' : 'watch_list');
-            
-            // Check for comma or enter key
-            if (event.key === ',' || event.key === 'Enter') {
-                event.preventDefault();  // Prevent form submission on Enter
-                let value = input.value.trim().toUpperCase();  // Convert to uppercase
-                if (value && !value.includes(',')) {
-                    // Check if the ticker is already in the list
+
+            // Normalize the input by removing extra spaces
+            let value = input.value.trim().toUpperCase();
+
+            // Check if the input contains a comma or ends with a comma
+            if (value.includes(',') || value.endsWith(',')) {
+                // Split the input on commas
+                const values = value.split(',').map(v => v.trim()).filter(v => v);
+
+                values.forEach(v => {
+                    // Avoid duplicates
                     const existingChips = container.querySelectorAll('.chip');
                     const existingValues = Array.from(existingChips).map(chip => chip.textContent.replace('×', '').trim());
-                    
-                    if (!existingValues.includes(value)) {
-                        addChip(value, containerId);
-                        input.value = ''; // Clear the input field
-                        updateTextarea(containerId, textarea);
+                    if (!existingValues.includes(v)) {
+                        addChip(v, containerId);
                     } else {
-                        alert('This stock ticker is already in the list!');
+                        alert(`The stock ticker "${v}" is already in the list!`);
                     }
-                }
+                });
+
+                // Clear the input field
+                input.value = '';
+                // Update the hidden textarea
+                updateTextarea(containerId, textarea);
             }
         }
+
 
 
         // Add a new chip (stock ticker)
