@@ -62,44 +62,48 @@ def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.g
             print(f"Error fetching data for batch {tickers_batch}: {e}")
             return None
 
-    def process_ticker_data(ticker, new_data):
-        stored_data = data["historical_data"].get(ticker, {"prices": [], "last_updated": None})
-        last_updated = stored_data.get("last_updated")
-        last_updated_date = (
-            datetime.datetime.strptime(last_updated, "%Y-%m-%d").date() if last_updated else None
-        )
+        def process_ticker_data(ticker, new_data):
+            stored_data = data["historical_data"].get(ticker, {"prices": [], "last_updated": None})
+            last_updated = stored_data.get("last_updated")
+            last_updated_date = (
+                datetime.datetime.strptime(last_updated, "%Y-%m-%d").date() if last_updated else None
+            )
 
-        # Skip if already updated
-        if last_updated_date == end_date:
-            return
+            # Skip if already updated
+            if last_updated_date == end_date:
+                return
 
-        # Safeguard: Check if `new_data` is None or empty
-        if new_data is None or new_data.empty:
-            print(f"Warning: No valid data fetched for ticker {ticker}")
-            return
+            # Safeguard: Check if `new_data` is None or empty
+            if new_data is None or new_data.empty:
+                print(f"Warning: No valid data fetched for ticker {ticker}")
+                return
 
-        # Ensure the DataFrame contains the expected 'Close' column
-        if "Close" not in new_data.columns:
-            print(f"Error: Missing 'Close' column for ticker {ticker}")
-            return
+            # Ensure the DataFrame contains the expected 'Close' column
+            if "Close" not in new_data.columns:
+                print(f"Error: Missing 'Close' column for ticker {ticker}")
+                return
 
-        # Process and append new data
-        for date, row in new_data.iterrows():
-            if not pd.isna(row["Close"]):
-                # Store date as compact string and price rounded to 2 decimals
-                stored_data["prices"].append([date.strftime("%Y%m%d"), round(row["Close"], 2)])
+            # Process and append new data
+            for date, row in new_data.iterrows():
+                if not pd.isna(row["Close"]):
+                    # Store date as compact string and price rounded to 2 decimals
+                    stored_data["prices"].append([date.strftime("%Y%m%d"), round(row["Close"], 2)])
 
-        # Update last updated date
-        stored_data["last_updated"] = end_date.strftime("%Y-%m-%d")
+            # Update last updated date
+            stored_data["last_updated"] = end_date.strftime("%Y-%m-%d")
 
-        # Filter prices to keep only within the start_date range
-        stored_data["prices"] = [
-            entry for entry in stored_data["prices"]
-            if datetime.datetime.strptime(entry[0], "%Y%m%d").date() >= start_date
-        ]
+            # Filter prices to keep only within the start_date range
+            stored_data["prices"] = [
+                entry for entry in stored_data["prices"]
+                if datetime.datetime.strptime(entry[0], "%Y%m%d").date() >= start_date
+            ]
 
-        # Save updated data back to the historical data store
-        data["historical_data"][ticker] = stored_data
+            # **Truncate to the most recent 300 entries**
+            stored_data["prices"] = stored_data["prices"][-300:]
+
+            # Save updated data back to the historical data store
+            data["historical_data"][ticker] = stored_data
+
 
     # Fetch and update only the necessary tickers (missing or outdated)
     for tickers_batch in tickers_batches:

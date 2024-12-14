@@ -4,7 +4,7 @@
         "default_watch_list": "AMZN"
     },
     "Gil": {
-        "default_tickers": "SMCI,ARKX,XLX,XLK",
+        "default_tickers": "ARKX,XLK,XLF,ARKK,NET,SMCI",
         "default_watch_list": "APPL,NVDA"
     },
     "Tomer": {
