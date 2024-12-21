@@ -1,72 +1,53 @@
-Gil-Stocks2
-A Flask-based web application for managing and analyzing stock portfolios and watchlists.
+<div align="center">
+  <br />
+  <br />
+  <h1>Gil-Stocks2</h1>
+  <h3>A Flask-based web application for managing and analyzing stock portfolios and watchlists.</h3>
+  <br />
+</div>
 
-Overview
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**
+
+- [Overview](#overview)
+- [Features](#features)
+- [Setup](#setup)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+- [Usage](#usage)
+  - [Home Page](#home-page)
+  - [Results Page](#results-page)
+  - [New User Page](#new-user-page)
+- [Project Structure](#project-structure)
+- [License](#license)
+- [Contact](#contact)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
+## Overview
+
 Gil-Stocks2 allows users to input stock tickers, view portfolio performance, and analyze potential stock purchases. The application fetches stock data, performs calculations, and displays results in a user-friendly interface.
 
-Features
-User Authentication: Users can create and manage their accounts.
+## Features
 
-Portfolio Management: Input stock tickers and view portfolio performance.
+- **User Authentication**: Users can create and manage their accounts.
+- **Portfolio Management**: Input stock tickers and view portfolio performance.
+- **Watchlist Analysis**: Analyze potential stock purchases based on trends and averages.
+- **Data Persistence**: Save user preferences and data for future sessions.
 
-Watchlist Analysis: Analyze potential stock purchases based on trends and averages.
+## Setup
 
-Data Persistence: Save user preferences and data for future sessions.
+### Prerequisites
 
-Setup
-Prerequisites
-Python 3.x
+- Python 3.x
+- Flask
+- Pandas
 
-Flask
+### Installation
 
-Pandas
+1. **Clone the repository**:
 
-Installation
-Clone the repository:
-
-bash
-git clone https://github.com/yourusername/Gil-Stocks2.git
-cd Gil-Stocks2
-Install dependencies:
-
-bash
-pip install -r requirements.txt
-Run the application:
-
-bash
-python app.py
-Access the application:
-
-Open your web browser and navigate to http://localhost:5000.
-
-Usage
-Home Page
-The home page allows you to input stock tickers and watchlist items. Enter your user ID and stock tickers, and then submit the form to view results.
-
-Results Page
-The results page displays your portfolio performance and watchlist analysis. It includes:
-
-Current Price: The latest stock price.
-
-Average Price: The rolling average price over the specified period.
-
-Percentage Difference: The percentage difference between the current and average prices.
-
-Action: Suggested actions based on stock performance.
-
-Trend Status: Analysis of stock trends.
-
-New User Page
-Create a new user account by entering a user ID and optional default tickers and watchlist items.
-
-Project Structure
-plaintext
-Gil-Stocks2/
-├── app.py
-├── templates/
-│   ├── index.html
-│   ├── results.html
-│   └── new_user.html
-├── static/
-├── requirements.txt
-└── README.md
+   ```bash
+   git clone https://github.com/yourusername/Gil-Stocks2.git
+   cd Gil-Stocks2
