@@ -1,53 +1,109 @@
-<div align="center">
-  <br />
-  <br />
-  <h1>Gil-Stocks2</h1>
-  <h3>A Flask-based web application for managing and analyzing stock portfolios and watchlists.</h3>
-  <br />
-</div>
+# Stock Portfolio and Watchlist Manager
 
-<!-- START doctoc generated TOC please keep comment here to allow auto update -->
-<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
-**Table of Contents**
-
-- [Overview](#overview)
-- [Features](#features)
-- [Setup](#setup)
-  - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
-- [Usage](#usage)
-  - [Home Page](#home-page)
-  - [Results Page](#results-page)
-  - [New User Page](#new-user-page)
-- [Project Structure](#project-structure)
-- [License](#license)
-- [Contact](#contact)
-
-<!-- END doctoc generated TOC please keep comment here to allow auto update -->
-
-## Overview
-
-Gil-Stocks2 allows users to input stock tickers, view portfolio performance, and analyze potential stock purchases. The application fetches stock data, performs calculations, and displays results in a user-friendly interface.
+A **Flask-based web application** that helps users manage their stock portfolios and watchlists. This app provides insights on stock performance, trends, and actionable recommendations based on key metrics.
 
 ## Features
 
-- **User Authentication**: Users can create and manage their accounts.
-- **Portfolio Management**: Input stock tickers and view portfolio performance.
-- **Watchlist Analysis**: Analyze potential stock purchases based on trends and averages.
-- **Data Persistence**: Save user preferences and data for future sessions.
+- **Portfolio Analysis**:
+  - Tracks portfolio performance.
+  - Calculates percentage difference from the 150-day moving average.
+  - Provides recommendations (e.g., Buy, Sell, Stay Away).
 
-## Setup
+- **Watchlist Management**:
+  - Monitors stocks for upward trends.
+  - Suggests actions like "Get Ready," "Buy," or "Next Time."
+  - Tracks recent close prices and moving averages.
 
-### Prerequisites
+- **User-Friendly Interface**:
+  - Add or edit stock portfolios and watchlists.
+  - Save personalized user data for future sessions.
 
-- Python 3.x
+## Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/your-repo-name.git
+   cd your-repo-name
+   ```
+
+2. Create a virtual environment and activate it:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # For Linux/Mac
+   venv\Scripts\activate     # For Windows
+   ```
+
+3. Install the required dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. Set up the application:
+   - Ensure `user_data.json` exists in the root directory.
+   - Update the `app.secret_key` in `app.py`.
+
+5. Run the app:
+   ```bash
+   python app.py
+   ```
+
+6. Open the app in your browser:
+   ```
+   http://127.0.0.1:5000
+   ```
+
+## Usage
+
+### Home Page
+- Enter stock tickers and watchlist tickers (comma-separated).
+- Click **Submit** to view the analysis.
+
+### Results Page
+- Analyze portfolio and watchlist performance.
+- View actionable insights and stock trends.
+
+### User Management
+- Add new users via the **New User** page.
+- Edit existing user preferences.
+
+## Folder Structure
+
+```
+├── app.py                 # Main application file
+├── templates/             # HTML templates
+│   ├── index.html         # Home page
+│   ├── results.html       # Results page
+│   ├── new_user.html      # New user form
+├── static/                # Static assets (CSS, JS)
+├── user_data.json         # User data file
+├── stock_utils.py         # Stock data utilities
+├── user_data_utils.py     # User data management
+└── requirements.txt       # Project dependencies
+```
+
+## Dependencies
+
 - Flask
 - Pandas
+- Any additional dependencies in `requirements.txt`
 
-### Installation
+## Example
 
-1. **Clone the repository**:
+![Screenshot](https://via.placeholder.com/800x400?text=App+Screenshot)
 
-   ```bash
-   git clone https://github.com/yourusername/Gil-Stocks2.git
-   cd Gil-Stocks2
+## Notes
+
+- Replace `'your_secret_key_here'` in `app.py` with a secure key for production.
+- Debugging information is logged for specific problematic tickers (`UNH`, `TXN`, `TEL`).
+
+## Contributing
+
+Contributions are welcome! Please fork the repository and submit a pull request.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
+
+---
+
+Developed with ❤️ using Flask.
