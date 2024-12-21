@@ -39,11 +39,13 @@
         </div>
         {% endif %}
 
+        {% set sorted_portfolio = results.portfolio | sort(attribute='action', reverse=true) %}
         <!-- Portfolio Section -->
         <section>
+        <div class="container">
             <h2>My Portfolio</h2>
             <div class="row">
-                {% for result in results.portfolio %}
+                {% for result in sorted_portfolio %}
                 <div class="col-lg-4 col-md-6 mb-4">
                     <div class="card {% if result.action == 'Sell' %} bg-light-red {% endif %}">
                         <div class="card-body">
@@ -62,35 +64,38 @@
                 </div>
                 {% endfor %}
             </div>
+        </div>
         </section>
         
         <!-- Watch List Section -->
         <section>
             <h2>My Watch List</h2>
             <div class="row">
-                {% for result in results.watch_list %}
-                <div class="col-lg-4 col-md-6 mb-4">
-                    <div class="card 
-                        {% if result.action == 'Sell' %} bg-light-red 
-                        {% elif result.action == 'Buy' %} bg-light-green 
-                        {% elif result.action == 'Get Ready' %} bg-light-orange 
-                        {% elif result.action == 'Next Time' %} bg-light-pink 
-                        {% endif %}">
-                        <div class="card-body">
-                            <h5 class="card-title"><a href="{{ result.external_link }}" target="_blank">{{ result.ticker }}</a></h5>
-                            <p class="card-text">Current Price: {{ result.current_price }}</p>
-                            <p class="card-text">Rolling Average Price: {{ result.average_price }}</p>
-                            <p class="card-text">Percentage Difference: {{ result.percentage_diff }}</p>
-                            <p class="card-text action-{{ result.action | lower | replace(' ', '-') }}">{{ result.action }}</p>
-                            {% if result.trend_status %}
-                            <p class="card-text">Trend Status: {{ result.trend_status }}</p>
-                            {% endif %}
-                            <div class="chart-container" style="position: relative; height:240px; width:auto">
-                                <canvas id="{{ result.ticker }}WatchListChart"></canvas>
+                {% for action in ['Buy', 'Get Ready', 'Next Time', 'Stay Away', 'Non relevant'] %}
+                    {% for result in results.watch_list if result.action == action %}
+                    <div class="col-lg-4 col-md-6 mb-4">
+                        <div class="card 
+                            {% if result.action == 'Sell' %} bg-light-red 
+                            {% elif result.action == 'Buy' %} bg-light-green 
+                            {% elif result.action == 'Get Ready' %} bg-light-orange 
+                            {% elif result.action == 'Next Time' %} bg-light-pink 
+                            {% endif %}">
+                            <div class="card-body">
+                                <h5 class="card-title"><a href="{{ result.external_link }}" target="_blank">{{ result.ticker }}</a></h5>
+                                <p class="card-text">Current Price: {{ result.current_price }}</p>
+                                <p class="card-text">Rolling Average Price: {{ result.average_price }}</p>
+                                <p class="card-text">Percentage Difference: {{ result.percentage_diff }}</p>
+                                <p class="card-text action-{{ result.action | lower | replace(' ', '-') }}">{{ result.action }}</p>
+                                {% if result.trend_status %}
+                                <p class="card-text">Trend Status: {{ result.trend_status }}</p>
+                                {% endif %}
+                                <div class="chart-container" style="position: relative; height:240px; width:auto">
+                                    <canvas id="{{ result.ticker }}WatchListChart"></canvas>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
+                    {% endfor %}
                 {% endfor %}
             </div>
         </section>
@@ -216,8 +221,9 @@
             });
         }
 
-        // Call the function for combined results
-        initializeCharts({{ results.combined | tojson }});
+        // Call the function for portfolio and watchlist
+        initializeCharts({{ results.portfolio | tojson }}, '');
+        initializeCharts({{ results.watch_list | tojson }}, 'WatchList');
     </script>
 </body>
 </html>
