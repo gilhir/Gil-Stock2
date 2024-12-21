@@ -101,9 +101,9 @@ A **Flask-based web application** that helps users manage their stock portfolios
 
 Contributions are welcome! Please fork the repository and submit a pull request.
 
-## License
+## Disclaimer
 
-This project is licensed under the [MIT License](LICENSE).
+This software is for educational purposes only. USE THE SOFTWARE AT YOUR OWN RISK. THE AUTHORS AND ALL AFFILIATES ASSUME NO RESPONSIBILITY FOR YOUR TRADING RESULTS. Do not risk money which you are afraid to lose. There might be bugs in the code - this software DOES NOT come with ANY warranty.
 
 ---
 
