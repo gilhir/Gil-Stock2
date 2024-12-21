@@ -65,7 +65,7 @@ def process_ticker_data(ticker, new_data, data, start_date, end_date):
 def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.gz"):
     data = load_compressed(data_file)
     end_date = datetime.datetime.now().date()
-    start_date = end_date - datetime.timedelta(days=period + 150)
+    start_date = end_date - datetime.timedelta(days=period + 400)
 
     batch_size = 10  # Adjust batch size as needed
     tickers_batches = [tickers[i:i + batch_size] for i in range(0, len(tickers), batch_size)]

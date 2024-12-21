@@ -150,6 +150,38 @@ def results():
         flash(f"An error occurred: {e}", "danger")
         return redirect(url_for('home'))
 
+@app.route('/new_user', methods=['GET', 'POST'])
+def new_user():
+    if request.method == 'POST':
+        try:
+            # Extract form data
+            user_id = request.form.get('user_id', '').strip()
+            if not user_id:
+                flash("User ID is required!", "danger")
+                return redirect(url_for('new_user'))
+
+            # Optional: Add default data for the new user
+            default_tickers = request.form.get('default_tickers', '')
+            default_watch_list = request.form.get('default_watch_list', '')
+
+            user_data = {
+                "default_tickers": default_tickers,
+                "default_watch_list": default_watch_list
+            }
+
+            # Save new user data
+            user_data_utils.save_user_data(user_id, user_data)
+            flash(f"User '{user_id}' created successfully!", "success")
+            return redirect(url_for('home'))
+
+        except Exception as e:
+            print(f"DEBUG: Error creating new user: {e}")
+            flash(f"An error occurred: {e}", "danger")
+            return redirect(url_for('new_user'))
+
+    # Handle GET request
+    return render_template('new_user.html')
+
 @app.route('/edit')
 def edit():
     try:

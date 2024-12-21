@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stock Analysis</title>
+    <title>Create New User</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <style>
-        body {
+        body{
             font-family: 'Arial', sans-serif;
             background-color: #f4f6f9;
         }
@@ -17,6 +16,7 @@
             background-color: #343a40;
             color: #fff;
             padding: 20px;
+            text-align: center;
         }
 
         .container {
@@ -113,78 +113,47 @@
         .form-group {
             margin-bottom: 20px;
         }
-
     </style>
 </head>
 <body>
-    <header class="text-center">
-        <h1>Stock Analysis</h1>
+    <header>
+        <h1>Create New User</h1>
     </header>
     <div class="container">
-        <form action="/results" method="post">
-            <h2>My Portfolio</h2>
-            <a href="{{ url_for('new_user') }}">Create New User</a>
+        <form method="POST">
             <div class="form-group">
                 <label for="user_id">User ID:</label>
-                <select class="form-control" name="user_id" id="user_id" required></select>
+                <input type="text" id="user_id" name="user_id" required>
             </div>
             <div class="form-group">
-                <label for="tickers">Enter stock tickers (comma-separated):</label>
+                <label for="default_tickers">Default Tickers:</label>
                 <div class="input-container" id="tickers-container">
                     <div class="input-box">
                         <input type="text" id="tickers-input" placeholder="Type stock tickers..." oninput="handleInput(event, 'tickers-container')">
                     </div>
                 </div>
-                <textarea class="form-control" name="tickers" id="tickers" rows="2" style="display: none;" required></textarea>
+                <textarea class="form-control" name="default_tickers" id="default_tickers" rows="2" style="display: none;" required></textarea>
             </div>
-            <h2>My Watch List</h2>
             <div class="form-group">
-                <label for="watch_list">Enter watch list tickers (comma-separated):</label>
+                <label for="default_watch_list">Default Watch List:</label>
                 <div class="input-container" id="watch-list-container">
                     <div class="input-box">
                         <input type="text" id="watch-list-input" placeholder="Type watch list tickers..." oninput="handleInput(event, 'watch-list-container')">
                     </div>
                 </div>
-                <textarea class="form-control" name="watch_list" id="watch_list" rows="2" style="display: none;" required></textarea>
+                <textarea class="form-control" name="default_watch_list" id="default_watch_list" rows="2" style="display: none;" required></textarea>
             </div>
-            <div class="form-group">
-                <label for="period">Period for average price (days):</label>
-                <input class="form-control" type="number" name="period" id="period" value="152" required>
-            </div>
-            <div class="form-group">
-                <label for="watch_list_period">Period for watch list (days):</label>
-                <input class="form-control" type="number" name="watch_list_period" id="watch_list_period" value="150" required>
-            </div>
-            <div class="form-group">
-                <label for="watch_list_trend_days">Trend check period (days):</label>
-                <input class="form-control" type="number" name="watch_list_trend_days" id="watch_list_trend_days" value="30" required>
-            </div>
-            <button type="submit" class="btn btn-primary">Analyze</button>
+            <button type="submit" class="btn btn-primary">Create User</button>
         </form>
+        <a href="{{ url_for('home') }}" class="btn btn-secondary mt-3">Back to Home</a>
     </div>
 
     <script>
-        // Fetch user IDs and their default values
-        function loadUserIds() {
-            fetch('/user_data.json')
-                .then(response => response.json())
-                .then(data => {
-                    const select = document.getElementById('user_id');
-                    Object.keys(data).forEach(userId => {
-                        const option = document.createElement('option');
-                        option.value = userId;
-                        option.text = userId;
-                        select.appendChild(option);
-                    });
-                })
-                .catch(error => console.error('Error:', error));
-        }
-
         // Handle input events for adding stocks to the list
         function handleInput(event, containerId) {
             const input = event.target;
             const container = document.getElementById(containerId);
-            const textarea = document.getElementById(containerId === 'tickers-container' ? 'tickers' : 'watch_list');
+            const textarea = document.getElementById(containerId === 'tickers-container' ? 'default_tickers' : 'default_watch_list');
 
             // Normalize the input by removing extra spaces
             let value = input.value.trim().toUpperCase();
@@ -212,8 +181,6 @@
             }
         }
 
-
-
         // Add a new chip (stock ticker)
         function addChip(value, containerId) {
             const container = document.getElementById(containerId);
@@ -239,11 +206,10 @@
             chipContainer.insertBefore(chip, chipContainer.lastChild);
         }
 
-
         // Remove a chip (stock ticker)
         function removeChip(chip, containerId) {
             const container = document.getElementById(containerId);
-            const textarea = document.getElementById(containerId === 'tickers-container' ? 'tickers' : 'watch_list');
+            const textarea = document.getElementById(containerId === 'tickers-container' ? 'default_tickers' : 'default_watch_list');
             chip.remove();
             updateTextarea(containerId, textarea);
         }
@@ -254,59 +220,6 @@
             const chips = container.querySelectorAll('.chip');
             const values = Array.from(chips).map(chip => chip.textContent.replace('×', '').trim());
             textarea.value = values.join(',');
-        }
-
-        // Pre-fill form based on the selected user
-        document.addEventListener('DOMContentLoaded', function() {
-            loadUserIds();
-
-            // Handle user selection and pre-fill the form
-            document.getElementById('user_id').addEventListener('change', function() {
-                var userId = this.value;
-                if (userId) {
-                    fetch('/user_data.json')
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data[userId]) {
-                                const defaultTickers = data[userId]['default_tickers'] || '';
-                                const defaultWatchList = data[userId]['default_watch_list'] || '';
-
-                                // Populate tickers and watchlist
-                                populateInputBoxes(defaultTickers, 'tickers-container', 'tickers-input', 'tickers');
-                                populateInputBoxes(defaultWatchList, 'watch-list-container', 'watch-list-input', 'watch_list');
-                            }
-                        })
-                        .catch(error => console.error('Error:', error));
-                }
-            });
-        });
-
-        // Populate input boxes and textarea with default data
-        function populateInputBoxes(value, containerId, inputId, textareaId) {
-            const container = document.getElementById(containerId);
-            const inputField = document.getElementById(inputId);
-
-            // Ensure the input field is not removed
-            if (!container.querySelector('.input-box')) {
-                const chipContainer = document.createElement('div');
-                chipContainer.classList.add('input-box');
-                chipContainer.appendChild(inputField); // Ensure the input stays
-                container.appendChild(chipContainer);
-            }
-
-            // Find the textarea associated with the container
-            const textarea = document.getElementById(textareaId);
-            
-            // Clear any chips before adding new ones
-            container.querySelectorAll('.chip').forEach(chip => chip.remove());
-
-            if (value.trim()) {
-                const items = value.split(',');
-                items.forEach(item => {
-                    addChip(item.trim(), containerId);
-                });
-            }
-            updateTextarea(containerId, textarea);
         }
     </script>
 </body>

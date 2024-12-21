@@ -1,0 +1,10 @@
+{
+    "Yuval": {
+        "default_tickers": "TSLA",
+        "default_watch_list": "MAX"
+    },
+    "default_user": {
+        "default_tickers": "TSLA,ARKK",
+        "default_watch_list": "INTC"
+    }
+}
