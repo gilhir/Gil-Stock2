@@ -19,7 +19,7 @@ def results():
         tickers = [ticker.strip() for ticker in request.form.get('tickers', '').split(',')]
         watch_list = [ticker.strip() for ticker in request.form.get('watch_list', '').split(',')]
         
-        # Remove duplicate tickers test
+        # Remove duplicate tickers
         tickers = list(set(tickers))
         watch_list = list(set(watch_list))
 

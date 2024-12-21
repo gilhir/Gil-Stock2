@@ -5,7 +5,6 @@ import pandas as pd
 import gzip
 import json
 
-
 def save_compressed(data, filename):
     """Save data to a compressed JSON file."""
     with gzip.open(filename, "wt", encoding="utf-8") as f:

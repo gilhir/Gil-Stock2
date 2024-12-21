@@ -2,7 +2,6 @@ import json
 import os
 
 USER_DATA_FILE = 'user_data.json'
-
 def load_user_data(user_id):
     if os.path.exists(USER_DATA_FILE):
         with open(USER_DATA_FILE, 'r') as file:
