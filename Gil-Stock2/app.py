@@ -19,7 +19,7 @@ def results():
         tickers = [ticker.strip() for ticker in request.form.get('tickers', '').split(',')]
         watch_list = [ticker.strip() for ticker in request.form.get('watch_list', '').split(',')]
         
-        # Remove duplicate tickers
+        # Remove duplicate tickers test
         tickers = list(set(tickers))
         watch_list = list(set(watch_list))
 
@@ -88,7 +88,7 @@ def results():
                 })
             else:
                 results["missing"].append(ticker)
-
+            
         for ticker in watch_list:
             if ticker in tickers_data and not tickers_data[ticker].empty:
                 close_prices = tickers_data[ticker]
