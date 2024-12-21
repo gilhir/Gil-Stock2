@@ -89,7 +89,8 @@ A **Flask-based web application** that helps users manage their stock portfolios
 
 ## Example
 
-![Screenshot](https://via.placeholder.com/800x400?text=App+Screenshot)
+![Screenshot](https://ibb.co/VSzzHVZ)
+![Screenshot](https://ibb.co/p0R3S9v)
 
 ## Notes
 
