@@ -1,9 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, send_from_directory, flash
 import os
 import pandas as pd
-import data_utils
 import stock_utils
-import plot_utils
 import user_data_utils
 
 app = Flask(__name__, template_folder='templates')
