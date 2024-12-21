@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Analysis</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f6f9;
+        }
+
+        header {
+            background-color: #343a40;
+            color: #fff;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin-top: 40px;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            font-weight: bold;
+        }
+
+        .input-container {
+            display: flex;
+            flex-wrap: wrap;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 8px;
+            background-color: #fff;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .input-box {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            flex-grow: 1;
+        }
+
+        .chip {
+            background-color: #007bff;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            margin: 4px;
+            font-size: 14px;
+            transition: transform 0.2s ease;
+        }
+
+        .chip:hover {
+            transform: scale(1.05);
+        }
+
+        .chip .close {
+            margin-left: 8px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .input-box input {
+            border: none;
+            outline: none;
+            padding: 8px;
+            font-size: 16px;
+            flex-grow: 1;
+            min-width: 80px;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+
+        .input-box input:focus {
+            background-color: #fff;
+            border: 1px solid #007bff;
+        }
+
+        .form-control {
+            border-radius: 5px;
+        }
+
+        .btn-primary {
+            background-color: #007bff;
+            border-color: #007bff;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            background-color: #0056b3;
+            border-color: #0056b3;
+        }
+
+        .btn-primary:focus {
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.5);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+    </style>
+</head>
+<body>
+    <header class="text-center">
+        <h1>Stock Analysis</h1>
+    </header>
+    <div class="container">
+        <form action="/results" method="post">
+            <h2>My Portfolio</h2>
+            <a href="{{ url_for('new_user') }}">Create New User</a>
+            <div class="form-group">
+                <label for="user_id">User ID:</label>
+                <select class="form-control" name="user_id" id="user_id" required></select>
+            </div>
+            <div class="form-group">
+                <label for="tickers">Enter stock tickers (comma-separated):</label>
+                <div class="input-container" id="tickers-container">
+                    <div class="input-box">
+                        <input type="text" id="tickers-input" placeholder="Type stock tickers..." oninput="handleInput(event, 'tickers-container')">
+                    </div>
+                </div>
+                <textarea class="form-control" name="tickers" id="tickers" rows="2" style="display: none;" required></textarea>
+            </div>
+            <h2>My Watch List</h2>
+            <div class="form-group">
+                <label for="watch_list">Enter watch list tickers (comma-separated):</label>
+                <div class="input-container" id="watch-list-container">
+                    <div class="input-box">
+                        <input type="text" id="watch-list-input" placeholder="Type watch list tickers..." oninput="handleInput(event, 'watch-list-container')">
+                    </div>
+                </div>
+                <textarea class="form-control" name="watch_list" id="watch_list" rows="2" style="display: none;" required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="period">Period for average price (days):</label>
+                <input class="form-control" type="number" name="period" id="period" value="152" required>
+            </div>
+            <div class="form-group">
+                <label for="watch_list_period">Period for watch list (days):</label>
+                <input class="form-control" type="number" name="watch_list_period" id="watch_list_period" value="150" required>
+            </div>
+            <div class="form-group">
+                <label for="watch_list_trend_days">Trend check period (days):</label>
+                <input class="form-control" type="number" name="watch_list_trend_days" id="watch_list_trend_days" value="30" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Analyze</button>
+        </form>
+    </div>
+
+    <script>
+        // Fetch user IDs and their default values
+        function loadUserIds() {
+            fetch('/user_data.json')
+                .then(response => response.json())
+                .then(data => {
+                    const select = document.getElementById('user_id');
+                    Object.keys(data).forEach(userId => {
+                        const option = document.createElement('option');
+                        option.value = userId;
+                        option.text = userId;
+                        select.appendChild(option);
+                    });
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        // Handle input events for adding stocks to the list
+        function handleInput(event, containerId) {
+            const input = event.target;
+            const container = document.getElementById(containerId);
+            const textarea = document.getElementById(containerId === 'tickers-container' ? 'tickers' : 'watch_list');
+
+            // Normalize the input by removing extra spaces
+            let value = input.value.trim().toUpperCase();
+
+            // Check if the input contains a comma or ends with a comma
+            if (value.includes(',') || value.endsWith(',')) {
+                // Split the input on commas
+                const values = value.split(',').map(v => v.trim()).filter(v => v);
+
+                values.forEach(v => {
+                    // Avoid duplicates
+                    const existingChips = container.querySelectorAll('.chip');
+                    const existingValues = Array.from(existingChips).map(chip => chip.textContent.replace('×', '').trim());
+                    if (!existingValues.includes(v)) {
+                        addChip(v, containerId);
+                    } else {
+                        alert(`The stock ticker "${v}" is already in the list!`);
+                    }
+                });
+
+                // Clear the input field
+                input.value = '';
+                // Update the hidden textarea
+                updateTextarea(containerId, textarea);
+            }
+        }
+
+
+
+        // Add a new chip (stock ticker)
+        function addChip(value, containerId) {
+            const container = document.getElementById(containerId);
+
+            // Ensure the input box exists
+            let chipContainer = container.querySelector('.input-box');
+            if (!chipContainer) {
+                chipContainer = document.createElement('div');
+                chipContainer.classList.add('input-box');
+                container.appendChild(chipContainer);
+            }
+
+            const chip = document.createElement('div');
+            chip.classList.add('chip');
+            chip.textContent = value.toUpperCase(); // Ensure the value is uppercase
+
+            const close = document.createElement('span');
+            close.classList.add('close');
+            close.textContent = '×';
+            close.onclick = () => removeChip(chip, containerId);
+            chip.appendChild(close);
+
+            chipContainer.insertBefore(chip, chipContainer.lastChild);
+        }
+
+
+        // Remove a chip (stock ticker)
+        function removeChip(chip, containerId) {
+            const container = document.getElementById(containerId);
+            const textarea = document.getElementById(containerId === 'tickers-container' ? 'tickers' : 'watch_list');
+            chip.remove();
+            updateTextarea(containerId, textarea);
+        }
+
+        // Update the hidden textarea with the current stock tickers
+        function updateTextarea(containerId, textarea) {
+            const container = document.getElementById(containerId);
+            const chips = container.querySelectorAll('.chip');
+            const values = Array.from(chips).map(chip => chip.textContent.replace('×', '').trim());
+            textarea.value = values.join(',');
+        }
+
+        // Pre-fill form based on the selected user
+        document.addEventListener('DOMContentLoaded', function() {
+            loadUserIds();
+
+            // Handle user selection and pre-fill the form
+            document.getElementById('user_id').addEventListener('change', function() {
+                var userId = this.value;
+                if (userId) {
+                    fetch('/user_data.json')
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data[userId]) {
+                                const defaultTickers = data[userId]['default_tickers'] || '';
+                                const defaultWatchList = data[userId]['default_watch_list'] || '';
+
+                                // Populate tickers and watchlist
+                                populateInputBoxes(defaultTickers, 'tickers-container', 'tickers-input', 'tickers');
+                                populateInputBoxes(defaultWatchList, 'watch-list-container', 'watch-list-input', 'watch_list');
+                            }
+                        })
+                        .catch(error => console.error('Error:', error));
+                }
+            });
+        });
+
+        // Populate input boxes and textarea with default data
+        function populateInputBoxes(value, containerId, inputId, textareaId) {
+            const container = document.getElementById(containerId);
+            const inputField = document.getElementById(inputId);
+
+            // Ensure the input field is not removed
+            if (!container.querySelector('.input-box')) {
+                const chipContainer = document.createElement('div');
+                chipContainer.classList.add('input-box');
+                chipContainer.appendChild(inputField); // Ensure the input stays
+                container.appendChild(chipContainer);
+            }
+
+            // Find the textarea associated with the container
+            const textarea = document.getElementById(textareaId);
+            
+            // Clear any chips before adding new ones
+            container.querySelectorAll('.chip').forEach(chip => chip.remove());
+
+            if (value.trim()) {
+                const items = value.split(',');
+                items.forEach(item => {
+                    addChip(item.trim(), containerId);
+                });
+            }
+            updateTextarea(containerId, textarea);
+        }
+    </script>
+</body>
+</html>
