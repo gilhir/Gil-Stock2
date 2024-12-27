@@ -3,6 +3,7 @@ import os
 import pandas as pd
 import stock_utils
 import user_data_utils
+import git
 
 app = Flask(__name__, template_folder='templates')
 app.secret_key = 'your_secret_key_here'  # Required for flash messages
@@ -196,6 +197,16 @@ def edit():
 @app.route('/user_data.json')
 def user_data():
     return send_from_directory('.', 'user_data.json')
+
+@app.route('/update_server', methods=['POST'])
+def webhook():
+        if request.method == 'POST':
+            repo = git.Repo('https://github.com/gilhir/Gil-Stock2.git')
+            origin = repo.remotes.origin
+            origin.pull()
+            return 'Updated PythonAnywhere successfully', 200
+        else:
+            return 'Wrong event type', 400
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
