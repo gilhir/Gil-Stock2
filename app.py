@@ -52,7 +52,6 @@ def results():
                 "watch_list": [],
                 "missing": []
             }
-            session['results'] = results
             session['user_id'] = user_id
             for ticker in tickers:
                 if ticker in tickers_data and not tickers_data[ticker].empty:
@@ -166,15 +165,26 @@ def results():
 @app.route('/latest_prices', methods=['GET'])
 def latest_prices():
     try:
-        results = session.get('results', {"portfolio": [], "watch_list": []})
-        tickers = [result['ticker'] for result in results['portfolio']] + \
-                  [result['ticker'] for result in results['watch_list']]
+        # Get the user_id from the session or use a default if not available
+        user_id = session.get('user_id', 'default_user')
+
+        # Load the user's data
+        user_data = user_data_utils.load_user_data(user_id)
+        default_tickers = user_data.get(user_id, {}).get('default_tickers', '').split(',')
+        watch_list = user_data.get(user_id, {}).get('default_watch_list', '').split(',')
+
+        # Combine both lists and remove any duplicates
+        tickers = list(set(default_tickers + watch_list))
+
+        # Fetch the current prices for the tickers
         latest_prices = {ticker: {'current_price': stock_utils.get_current_price(ticker)} for ticker in tickers}
-        
+
+        # Return the result as JSON
         return json.dumps(latest_prices)
     except Exception as e:
         print(f"DEBUG: Error fetching latest prices: {e}")
         return json.dumps({'error': str(e)}), 500
+
 
 @app.route('/new_user', methods=['GET', 'POST'])
 def new_user():
