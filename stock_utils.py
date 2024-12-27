@@ -19,14 +19,11 @@ def load_compressed(filename):
     with gzip.open(filename, "rt", encoding="utf-8") as f:
         return json.load(f)
 
-<<<<<<< HEAD
 def get_current_price(ticker):
     """Fetch the current price of a ticker."""
     ticker_yahoo = yf.Ticker(ticker)
     return ticker_yahoo.history(period="1d")["Close"].iloc[-1]
 
-=======
->>>>>>> origin/main
 def process_ticker_data(ticker, new_data, data, start_date, end_date):
     stored_data = data["historical_data"].get(ticker, {"prices": [], "last_updated": None})
     last_updated = stored_data.get("last_updated")
@@ -34,13 +31,6 @@ def process_ticker_data(ticker, new_data, data, start_date, end_date):
         datetime.datetime.strptime(last_updated, "%Y-%m-%d").date() if last_updated else None
     )
 
-<<<<<<< HEAD
-=======
-    # Skip if already updated
-    if last_updated_date == end_date:
-        return
-
->>>>>>> origin/main
     # Safeguard: Check if `new_data` is None or empty
     if new_data is None or new_data.empty:
         print(f"Warning: No valid data fetched for ticker {ticker}")
@@ -60,24 +50,17 @@ def process_ticker_data(ticker, new_data, data, start_date, end_date):
     # Update last updated date
     stored_data["last_updated"] = end_date.strftime("%Y-%m-%d")
 
-<<<<<<< HEAD
     # Add the current price for today's date
     current_price = get_current_price(ticker)
     stored_data["prices"].append([end_date.strftime("%Y%m%d"), round(current_price, 2)])
 
-=======
->>>>>>> origin/main
     # Filter prices to keep only within the start_date range
     stored_data["prices"] = [
         entry for entry in stored_data["prices"]
         if datetime.datetime.strptime(entry[0], "%Y%m%d").date() >= start_date
     ]
 
-<<<<<<< HEAD
     # Truncate to the most recent 300 entries
-=======
-    # **Truncate to the most recent 300 entries**
->>>>>>> origin/main
     stored_data["prices"] = stored_data["prices"][-300:]
 
     # Save updated data back to the historical data store
@@ -136,15 +119,12 @@ def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.g
                     if ticker in ticker_data:
                         process_ticker_data(ticker, ticker_data[ticker], data, start_date, end_date)
 
-<<<<<<< HEAD
     # Update the current prices for all tickers
     for ticker in tickers:
         current_price = get_current_price(ticker)
         if ticker in data["historical_data"]:
             data["historical_data"][ticker]["prices"].append([end_date.strftime("%Y%m%d"), round(current_price, 2)])
 
-=======
->>>>>>> origin/main
     # Step 4: Update global last updated date and save data
     data["global_last_updated"] = end_date.strftime("%Y-%m-%d")
     save_compressed(data, data_file)

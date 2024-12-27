@@ -13,11 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Custom Inline Styles -->
-<<<<<<< HEAD
     <style>
-=======
-    <style> 
->>>>>>> origin/main
         .chart-container { position: relative; width: 100%; height: 400px; }
         .chart-canvas { width: 100% !important; height: 100% !important; }
         .alert { position: fixed; top: 20px; right: 20px; z-index: 1000; }
@@ -113,7 +109,6 @@
         </div>
     </div>
 
-<<<<<<< HEAD
     <!-- Popup for refresh recommendation -->
     <div id="refreshPopup" class="modal" tabindex="-1" role="dialog">
         <div class="modal-dialog" role="document">
@@ -135,8 +130,6 @@
         </div>
     </div>
 
-=======
->>>>>>> origin/main
     <!-- JavaScript -->
     <script>
         function openModal(imageSrc) {
@@ -165,18 +158,13 @@
                 });
             });
 
-<<<<<<< HEAD
             // Auto-close alert after a timeout (30 seconds)
-=======
-            // Optional: Auto-close alert after a timeout (5 seconds)
->>>>>>> origin/main
             setTimeout(() => {
                 const alert = document.getElementById("alert");
                 if (alert) {
                     alert.style.opacity = "0"; // Fade out
                     setTimeout(() => alert.remove(), 1000); // Remove after fade out
                 }
-<<<<<<< HEAD
             }, 30000); // 30 seconds
         });
 
@@ -190,11 +178,6 @@
             location.reload();
         }
 
-=======
-            }, 5000);
-        });
-
->>>>>>> origin/main
         // Store existing chart instances
         const charts = {};
 
