@@ -238,7 +238,7 @@ def webhook():
     if request.method == 'POST':
         try:
             # Use the local path where the repository is cloned
-            repo_path = '/home/gilhir/'  # Update this with the correct path
+            repo_path = '/'  # Update this with the correct path
             repo = git.Repo(repo_path)
             origin = repo.remotes.origin
             origin.pull()  # This will fetch the latest changes from the remote
