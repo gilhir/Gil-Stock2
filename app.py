@@ -235,13 +235,20 @@ def user_data():
 
 @app.route('/update_server', methods=['POST'])
 def webhook():
-        if request.method == 'POST':
-            repo = git.Repo('/')
+    if request.method == 'POST':
+        try:
+            # Use the local path where the repository is cloned
+            repo_path = '/home/gilhir/'  # Update this with the correct path
+            repo = git.Repo(repo_path)
             origin = repo.remotes.origin
-            origin.pull()
+            origin.pull()  # This will fetch the latest changes from the remote
             return 'Updated PythonAnywhere successfully', 200
-        else:
-            return 'Wrong event type', 400
+        except Exception as e:
+            print(f"Error: {e}")
+            return f"Error: {e}", 500
+    else:
+        return 'Wrong event type', 400
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
