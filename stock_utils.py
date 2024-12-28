@@ -51,8 +51,11 @@ def process_ticker_data(ticker, new_data, data, start_date, end_date):
     stored_data["last_updated"] = end_date.strftime("%Y-%m-%d")
 
     # Add the current price for today's date
-    current_price = get_current_price(ticker)
-    stored_data["prices"].append([end_date.strftime("%Y%m%d"), round(current_price, 2)])
+    try:
+        current_price = get_current_price(ticker)
+        stored_data["prices"].append([end_date.strftime("%Y%m%d"), round(current_price, 2)])
+    except Exception as e:
+        print(f"Error getting current price for ticker {ticker}: {e}")
 
     # Filter prices to keep only within the start_date range
     stored_data["prices"] = [
@@ -117,13 +120,22 @@ def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.g
             if ticker_data is not None:
                 for ticker in tickers_batch_to_process:
                     if ticker in ticker_data:
-                        process_ticker_data(ticker, ticker_data[ticker], data, start_date, end_date)
+                        # Ensure there is valid data for the ticker
+                        if not ticker_data[ticker].empty:
+                            process_ticker_data(ticker, ticker_data[ticker], data, start_date, end_date)
+                        else:
+                            print(f"Warning: No valid data for ticker {ticker}")
+                    else:
+                        print(f"Warning: Ticker {ticker} not found in fetched data")
 
     # Update the current prices for all tickers
     for ticker in tickers:
-        current_price = get_current_price(ticker)
-        if ticker in data["historical_data"]:
-            data["historical_data"][ticker]["prices"].append([end_date.strftime("%Y%m%d"), round(current_price, 2)])
+        try:
+            current_price = get_current_price(ticker)
+            if ticker in data["historical_data"]:
+                data["historical_data"][ticker]["prices"].append([end_date.strftime("%Y%m%d"), round(current_price, 2)])
+        except Exception as e:
+            print(f"Error getting current price for ticker {ticker}: {e}")
 
     # Step 4: Update global last updated date and save data
     data["global_last_updated"] = end_date.strftime("%Y-%m-%d")
@@ -132,7 +144,7 @@ def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.g
     # Step 5: Prepare the results in a structured format
     results = {}
     for ticker in tickers:
-        if ticker in data["historical_data"]:
+        if ticker in data["historical_data"] and data["historical_data"][ticker]["prices"]:
             prices = pd.Series(
                 {entry[0]: entry[1] for entry in data["historical_data"][ticker]["prices"]},
                 name=ticker
@@ -141,6 +153,7 @@ def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.g
             results[ticker] = prices
 
     return results
+
 
 def check_upward_trend(data, trend_days, period):
     rolling_average = data.rolling(window=period).mean()

@@ -1,13 +1,30 @@
-from flask import Flask, render_template, request, redirect, url_for, send_from_directory, flash, session
+from flask import Flask, render_template, request, redirect, url_for, send_from_directory, flash, session, jsonify
 import os
 import pandas as pd
 import stock_utils
 import json
 import user_data_utils
 import git
+import pandas_market_calendars as mcal
+from datetime import datetime, timedelta
+
 
 app = Flask(__name__, template_folder='templates')
 app.secret_key = 'your_secret_key_here'  # Required for flash messages
+
+def market_is_open(date):
+    result = mcal.get_calendar("NYSE").schedule(start_date=date, end_date=date)
+    return not result.empty
+
+def next_market_open():
+    nyse = mcal.get_calendar("NYSE")
+    current_date = datetime.now()
+    while not market_is_open(current_date.strftime("%Y-%m-%d")):
+        current_date += timedelta(days=1)
+    next_open = nyse.schedule(start_date=current_date.strftime("%Y-%m-%d"), end_date=current_date.strftime("%Y-%m-%d"))
+    return next_open.iloc[0].market_open.strftime("%Y-%m-%d %H:%M:%S")
+
+
 
 @app.route('/')
 def home():
@@ -54,105 +71,122 @@ def results():
             }
             session['user_id'] = user_id
             for ticker in tickers:
-                if ticker in tickers_data and not tickers_data[ticker].empty:
-                    close_prices = tickers_data[ticker]
-                    dates = close_prices.index[-50:].strftime('%Y-%m-%d').tolist()
-                    last_50_closes = close_prices[-50:].tolist()
-                    last_50_ma = close_prices.rolling(window=150).mean().iloc[-50:].tolist()
+                try:
+                    if ticker in tickers_data and not tickers_data[ticker].empty:
+                        close_prices = tickers_data[ticker]
+                        if len(close_prices) >= 50:
+                            dates = close_prices.index[-50:].strftime('%Y-%m-%d').tolist()
+                            last_50_closes = close_prices[-50:].tolist()
+                            last_50_ma = close_prices.rolling(window=150).mean().iloc[-50:].tolist()
+                        else:
+                            dates = close_prices.index.strftime('%Y-%m-%d').tolist()
+                            last_50_closes = close_prices.tolist()
+                            last_50_ma = close_prices.rolling(window=150).mean().tolist()
 
-                    if ticker in problematic_tickers:
-                        print(f"DEBUG: Chart data for {ticker}: Dates: {dates}, Closes: {last_50_closes}, MAs: {last_50_ma}")
+                        if len(close_prices) < 150:
+                            rolling_avg = None
+                            percentage_diff = None
+                            current_price = close_prices.iloc[-1] if len(close_prices) > 0 else None
+                        else:
+                            rolling_avg = close_prices.rolling(window=150).mean().iloc[-1]
+                            current_price = close_prices.iloc[-1]
 
-                    if len(close_prices) < 150:
-                        rolling_avg = None
-                        percentage_diff = None
-                        current_price = close_prices.iloc[-1] if len(close_prices) > 0 else None
+                        if rolling_avg is not None and not pd.isna(rolling_avg):
+                            percentage_diff = ((current_price - rolling_avg) / rolling_avg) * 100
+                            action = "Sell" if percentage_diff < 0 else ""
+                        else:
+                            percentage_diff = None
+                            action = "Insufficient Data"
+
+                        results["portfolio"].append({
+                            'ticker': ticker,
+                            'current_price': f"${current_price:.2f}" if current_price else "N/A",
+                            'average_price': f"${rolling_avg:.2f}" if rolling_avg else "N/A",
+                            'percentage_diff': f"{percentage_diff:.2f}%" if percentage_diff else "N/A",
+                            'action': action,
+                            'external_link': f"https://finance.yahoo.com/quote/{ticker}/chart",
+                            'last_50_closes': last_50_closes,
+                            'last_50_ma': last_50_ma,
+                            'dates': dates
+                        })
                     else:
-                        rolling_avg = close_prices.rolling(window=150).mean().iloc[-1]
-                        current_price = close_prices.iloc[-1]
-
-                    if rolling_avg is not None and not pd.isna(rolling_avg):
-                        percentage_diff = ((current_price - rolling_avg) / rolling_avg) * 100
-                        action = "Sell" if percentage_diff < 0 else ""
-                    else:
-                        percentage_diff = None
-                        action = "Insufficient Data"
-
-                    results["portfolio"].append({
-                        'ticker': ticker,
-                        'current_price': f"${current_price:.2f}" if current_price else "N/A",
-                        'average_price': f"${rolling_avg:.2f}" if rolling_avg else "N/A",
-                        'percentage_diff': f"{percentage_diff:.2f}%" if percentage_diff else "N/A",
-                        'action': action,
-                        'external_link': f"https://finance.yahoo.com/quote/{ticker}/chart",
-                        'last_50_closes': last_50_closes,
-                        'last_50_ma': last_50_ma,
-                        'dates': dates
-                    })
-                else:
+                        results["missing"].append(ticker)
+                except Exception as e:
+                    print(f"DEBUG: Error processing ticker {ticker}: {e}")
                     results["missing"].append(ticker)
+
 
             for ticker in watch_list:
-                if ticker in tickers_data and not tickers_data[ticker].empty:
-                    close_prices = tickers_data[ticker]
-                    dates = close_prices.index[-50:].strftime('%Y-%m-%d').tolist()
-                    last_50_closes = close_prices[-50:].tolist()
-                    last_50_ma = close_prices.rolling(window=150).mean().iloc[-50:].tolist()
-                    
-                    if len(close_prices) < 150:
-                        rolling_avg = None
-                        percentage_diff = None
-                    else:
-                        rolling_avg = close_prices.rolling(window=150).mean().iloc[-1]
+                try:
+                    if ticker in tickers_data and not tickers_data[ticker].empty:
+                        close_prices = tickers_data[ticker]
+                        if len(close_prices) >= 50:
+                            dates = close_prices.index[-50:].strftime('%Y-%m-%d').tolist()
+                            last_50_closes = close_prices[-50:].tolist()
+                            last_50_ma = close_prices.rolling(window=150).mean().iloc[-50:].tolist()
+                        else:
+                            dates = close_prices.index.strftime('%Y-%m-%d').tolist()
+                            last_50_closes = close_prices.tolist()
+                            last_50_ma = close_prices.rolling(window=150).mean().tolist()
 
-                    if rolling_avg is not None and not pd.isna(rolling_avg):
-                        current_price = close_prices.iloc[-1]
-                        percentage_diff = ((current_price - rolling_avg) / rolling_avg) * 100
-                    else:
-                        current_price = None
-                        percentage_diff = None
-                        action = "Insufficient Data"
+                        if len(close_prices) < 150:
+                            rolling_avg = None
+                            percentage_diff = None
+                        else:
+                            rolling_avg = close_prices.rolling(window=150).mean().iloc[-1]
 
-                    trend = stock_utils.check_upward_trend(close_prices, watch_list_trend_days, period)
-                    trend_status = "Upward" if trend else "Not upward"
+                        if rolling_avg is not None and not pd.isna(rolling_avg):
+                            current_price = close_prices.iloc[-1]
+                            percentage_diff = ((current_price - rolling_avg) / rolling_avg) * 100
+                        else:
+                            current_price = None
+                            percentage_diff = None
+                            action = "Insufficient Data"
 
-                    if trend_status == "Not upward":
-                        action = "Stay Away"
-                    elif trend_status == "Upward":
-                        if percentage_diff is not None and (-1.5 < percentage_diff < 1.5) and current_price > rolling_avg:
-                            action = "Buy"
-                        elif percentage_diff is not None and -2 < percentage_diff < 2 and current_price < rolling_avg:
-                            action = "Get Ready"
-                        elif percentage_diff is not None and percentage_diff > 1.5 and current_price > rolling_avg:
-                            action = "Next Time"
+                        trend = stock_utils.check_upward_trend(close_prices, watch_list_trend_days, period)
+                        trend_status = "Upward" if trend else "Not upward"
+
+                        if trend_status == "Not upward":
+                            action = "Stay Away"
+                        elif trend_status == "Upward":
+                            if percentage_diff is not None and (-1.5 < percentage_diff < 1.5) and current_price > rolling_avg:
+                                action = "Buy"
+                            elif percentage_diff is not None and -2 < percentage_diff < 2 and current_price < rolling_avg:
+                                action = "Get Ready"
+                            elif percentage_diff is not None and percentage_diff > 1.5 and current_price > rolling_avg:
+                                action = "Next Time"
+                            else:
+                                action = "Non relevant"
                         else:
                             action = "Non relevant"
+
+                        external_link = f"https://finance.yahoo.com/quote/{ticker}/chart"
+
+                        results["watch_list"].append({
+                            'ticker': ticker,
+                            'current_price': f"${current_price:.2f}" if current_price else "N/A",
+                            'average_price': f"${rolling_avg:.2f}" if rolling_avg else "N/A",
+                            'percentage_diff': f"{percentage_diff:.2f}%" if percentage_diff else "N/A",
+                            'action': action,
+                            'trend_status': trend_status,
+                            'external_link': external_link,
+                            'last_50_closes': last_50_closes,
+                            'last_50_ma': last_50_ma,
+                            'dates': dates
+                        })
                     else:
-                        action = "Non relevant"
-
-                    external_link = f"https://finance.yahoo.com/quote/{ticker}/chart"
-
-                    results["watch_list"].append({
-                        'ticker': ticker,
-                        'current_price': f"${current_price:.2f}" if current_price else "N/A",
-                        'average_price': f"${rolling_avg:.2f}" if rolling_avg else "N/A",
-                        'percentage_diff': f"{percentage_diff:.2f}%" if percentage_diff else "N/A",
-                        'action': action,
-                        'trend_status': trend_status,
-                        'external_link': external_link,
-                        'last_50_closes': last_50_closes,
-                        'last_50_ma': last_50_ma,
-                        'dates': dates
-                    })
-                else:
+                        results["missing"].append(ticker)
+                except Exception as e:
+                    print(f"DEBUG: Error processing ticker {ticker}: {e}")
                     results["missing"].append(ticker)
+
 
             return render_template('results.html', results=results, missing_tickers=results["missing"], user_id=user_id)
         except Exception as e:
             print(f"DEBUG: Error processing request: {e}")
             flash(f"An error occurred: {e}", "danger")
             return redirect(url_for('home'))
-    
+
     elif request.method == 'GET':
         results = session.get('results', None)
         if results:
@@ -160,30 +194,55 @@ def results():
         else:
             flash("No results to display. Please submit your data first.", "warning")
             return redirect(url_for('home'))
+
     
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
 
 @app.route('/latest_prices', methods=['GET'])
 def latest_prices():
+    logging.debug("Received request for latest prices.")
     try:
-        # Get the user_id from the session or use a default if not available
-        user_id = session.get('user_id', 'default_user')
+        # Check if the market is open
+        today = datetime.now().strftime("%Y-%m-%d")
+        logging.debug(f"Checking market status for date: {today}")
+        
+        if not market_is_open(today):
+            next_open = next_market_open()
+            logging.debug(f"Market is closed. Next open: {next_open}")
+            return jsonify({
+                'market_status': 'closed',
+                'next_open': next_open
+            })
 
-        # Load the user's data
-        user_data = user_data_utils.load_user_data(user_id)
-        default_tickers = user_data.get(user_id, {}).get('default_tickers', '').split(',')
-        watch_list = user_data.get(user_id, {}).get('default_watch_list', '').split(',')
+        logging.debug("Market is open. Fetching user results file.")
+        user_results_file = session.get('user_results_file', None)
+        
+        if user_results_file and os.path.exists(user_results_file):
+            with open(user_results_file, 'r') as f:
+                user_results = json.load(f)
+            logging.debug("Loaded user results from file.")
+        else:
+            user_results = {"portfolio": [], "watch_list": []}
+            logging.debug("No user results file found. Using empty results.")
 
-        # Combine both lists and remove any duplicates
-        tickers = list(set(default_tickers + watch_list))
-
-        # Fetch the current prices for the tickers
+        tickers = [result['ticker'] for result in user_results['portfolio']] + \
+                  [result['ticker'] for result in user_results['watch_list']]
+        logging.debug(f"Fetching current prices for tickers: {tickers}")
+        
         latest_prices = {ticker: {'current_price': stock_utils.get_current_price(ticker)} for ticker in tickers}
-
-        # Return the result as JSON
-        return json.dumps(latest_prices)
+        
+        logging.debug("Returning latest prices.")
+        return jsonify({
+            'market_status': 'open',
+            'latest_prices': latest_prices
+        })
     except Exception as e:
-        print(f"DEBUG: Error fetching latest prices: {e}")
-        return json.dumps({'error': str(e)}), 500
+        logging.error(f"Error fetching latest prices: {e}")
+        return jsonify({'error': str(e)}), 500
+
 
 
 @app.route('/new_user', methods=['GET', 'POST'])
