@@ -50,13 +50,6 @@ def process_ticker_data(ticker, new_data, data, start_date, end_date):
     # Update last updated date
     stored_data["last_updated"] = end_date.strftime("%Y-%m-%d")
 
-    # Add the current price for today's date
-    try:
-        current_price = get_current_price(ticker)
-        stored_data["prices"].append([end_date.strftime("%Y%m%d"), round(current_price, 2)])
-    except Exception as e:
-        print(f"Error getting current price for ticker {ticker}: {e}")
-
     # Filter prices to keep only within the start_date range
     stored_data["prices"] = [
         entry for entry in stored_data["prices"]
@@ -75,7 +68,7 @@ def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.g
     end_date = datetime.datetime.now().date()
     start_date = end_date - datetime.timedelta(days=period + 150)
 
-    batch_size = 10  # Adjust batch size as needed
+    batch_size = 100  # Adjust batch size as needed
     tickers_batches = [tickers[i:i + batch_size] for i in range(0, len(tickers), batch_size)]
 
     # Step 1: Check if global data is up-to-date
@@ -127,15 +120,6 @@ def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.g
                             print(f"Warning: No valid data for ticker {ticker}")
                     else:
                         print(f"Warning: Ticker {ticker} not found in fetched data")
-
-    # Update the current prices for all tickers
-    for ticker in tickers:
-        try:
-            current_price = get_current_price(ticker)
-            if ticker in data["historical_data"]:
-                data["historical_data"][ticker]["prices"].append([end_date.strftime("%Y%m%d"), round(current_price, 2)])
-        except Exception as e:
-            print(f"Error getting current price for ticker {ticker}: {e}")
 
     # Step 4: Update global last updated date and save data
     data["global_last_updated"] = end_date.strftime("%Y-%m-%d")

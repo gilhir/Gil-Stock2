@@ -24,8 +24,6 @@ def next_market_open():
     next_open = nyse.schedule(start_date=current_date.strftime("%Y-%m-%d"), end_date=current_date.strftime("%Y-%m-%d"))
     return next_open.iloc[0].market_open.strftime("%Y-%m-%d %H:%M:%S")
 
-
-
 @app.route('/')
 def home():
     return render_template('index.html', default_tickers='', default_watch_list='')
@@ -47,8 +45,8 @@ def results():
             watch_list_period = int(request.form.get('watch_list_period', 150))
             watch_list_trend_days = int(request.form.get('watch_list_trend_days', 30))
 
-            tickers = [ticker if ticker != 'APPL' else 'AAPL' for ticker in tickers]
-            watch_list = [ticker if ticker != 'APPL' else 'AAPL' for ticker in watch_list]
+            tickers = [ticker for ticker in tickers]
+            watch_list = [ticker for ticker in watch_list]
 
             user_data = {
                 "default_tickers": request.form.get('tickers', ''),
@@ -57,12 +55,6 @@ def results():
             user_data_utils.save_user_data(user_id, user_data)
 
             tickers_data = stock_utils.fetch_and_store_stock_data(tickers + watch_list, period + 150)
-
-            # Log data for specific problematic tickers
-            problematic_tickers = ['UNH', 'TXN', 'TEL']
-            for ticker in problematic_tickers:
-                if ticker in tickers_data:
-                    print(f"DEBUG: Data for {ticker}: {tickers_data[ticker]}")
 
             results = {
                 "portfolio": [],
@@ -195,52 +187,36 @@ def results():
             flash("No results to display. Please submit your data first.", "warning")
             return redirect(url_for('home'))
 
-    
-import logging
-
-# Configure logging
-logging.basicConfig(level=logging.DEBUG)
-
 @app.route('/latest_prices', methods=['GET'])
 def latest_prices():
-    logging.debug("Received request for latest prices.")
     try:
         # Check if the market is open
         today = datetime.now().strftime("%Y-%m-%d")
-        logging.debug(f"Checking market status for date: {today}")
         
         if not market_is_open(today):
             next_open = next_market_open()
-            logging.debug(f"Market is closed. Next open: {next_open}")
             return jsonify({
                 'market_status': 'closed',
                 'next_open': next_open
             })
-
-        logging.debug("Market is open. Fetching user results file.")
         user_results_file = session.get('user_results_file', None)
         
         if user_results_file and os.path.exists(user_results_file):
             with open(user_results_file, 'r') as f:
                 user_results = json.load(f)
-            logging.debug("Loaded user results from file.")
         else:
             user_results = {"portfolio": [], "watch_list": []}
-            logging.debug("No user results file found. Using empty results.")
 
         tickers = [result['ticker'] for result in user_results['portfolio']] + \
                   [result['ticker'] for result in user_results['watch_list']]
-        logging.debug(f"Fetching current prices for tickers: {tickers}")
         
         latest_prices = {ticker: {'current_price': stock_utils.get_current_price(ticker)} for ticker in tickers}
         
-        logging.debug("Returning latest prices.")
         return jsonify({
             'market_status': 'open',
             'latest_prices': latest_prices
         })
     except Exception as e:
-        logging.error(f"Error fetching latest prices: {e}")
         return jsonify({'error': str(e)}), 500
 
 
