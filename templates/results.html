@@ -17,12 +17,9 @@
 <body>
     <header class="bg-dark text-white text-center py-3">
         <h1>Stock Analysis Results</h1>
-        <p>Hello {{ user_id }}!</p>
+        <p>Hello {{ user_id }}</p>
     </header>
-            <!-- Market Closed Notice -->
-            <div id="market-closed-notice" class="alert alert-warning text-center" style="display: none;">
-                The market is currently closed. Prices will not be updated until further notice.
-            </div>
+    
     <div class="container mt-4">
         <!-- Alert for missing tickers -->
         {% if missing_tickers %}
@@ -145,53 +142,16 @@
             }, 30000); // 30 seconds
         });
 
-        let marketCheckInterval;
-let marketReopenTimeout;
-
-// Function to fetch the latest stock prices
-async function fetchLatestPrices() {
-    console.log("Fetching latest prices.");
-    try {
-        const response = await fetch('/latest_prices');
-        const data = await response.json();
-        console.log("Received response:", data);
-
-        const marketClosedNotice = document.getElementById('market-closed-notice');
-        console.log("Market Closed Notice Element:", marketClosedNotice);
-
-        if (data.market_status === 'closed') {
-            console.log("Market is closed.");
-            marketClosedNotice.style.display = 'block';
-            marketClosedNotice.style.opacity = '1';
-            marketClosedNotice.innerText = `The market is currently closed. Prices will not be updated until ${data.next_open}.`;
-
-            // Clear the interval to stop further requests
-            clearInterval(marketCheckInterval);
-            console.log("Cleared market check interval.");
-
-            // Calculate the time until the market reopens
-            const nextOpenTime = new Date(data.next_open).getTime();
-            const currentTime = new Date().getTime();
-            const timeUntilOpen = nextOpenTime - currentTime;
-
-            console.log(`Time until market opens: ${timeUntilOpen} ms`);
-
-            // Set a timeout to check again when the market reopens
-            marketReopenTimeout = setTimeout(() => {
-                console.log("Setting interval for market check after reopening.");
-                marketCheckInterval = setInterval(fetchLatestPrices, 20000);
-                fetchLatestPrices();  // Immediate fetch when market opens
-            }, timeUntilOpen);
-        } else if (data.market_status === 'open') {
-            console.log("Market is open. Updating prices and charts.");
-            marketClosedNotice.style.display = 'none';
-            marketClosedNotice.style.opacity = '0';
-            updatePricesAndCharts(data.latest_prices);
+        // Function to fetch the latest stock prices
+    async function fetchLatestPrices() {
+        try {
+            const response = await fetch('/latest_prices');
+            const data = await response.json();
+            updatePricesAndCharts(data);
+        } catch (error) {
+            console.error('Error fetching latest prices:', error);
         }
-    } catch (error) {
-        console.error('Error fetching latest prices:', error);
     }
-}
 
     // Function to update prices and charts on the page
     function updatePricesAndCharts(data) {
