@@ -193,9 +193,40 @@ async function fetchLatestPrices() {
     }
 }
 
-// Initial check and set interval
-fetchLatestPrices();
-marketCheckInterval = setInterval(fetchLatestPrices, 7000);
+    // Function to update prices and charts on the page
+    function updatePricesAndCharts(data) {
+        Object.keys(data).forEach(ticker => {
+            const priceElement = document.getElementById(`price-${ticker}`);
+            const currentPrice = parseFloat(priceElement.innerText.replace('$', ''));
+            const newPrice = data[ticker].current_price;
+
+            if (newPrice !== currentPrice) {
+                priceElement.innerText = `$${newPrice.toFixed(2)}`;
+                priceElement.classList.add(newPrice > currentPrice ? 'highlight-green' : 'highlight-red');
+                
+                // Use a separate timeout for fade-out
+                setTimeout(() => {
+                    priceElement.classList.remove(newPrice > currentPrice ? 'highlight-green' : 'highlight-red');
+                    priceElement.classList.add('fade-out');
+                }, 1000);  // Delay before fading out
+
+                setTimeout(() => {
+                    priceElement.classList.remove('fade-out');
+                }, 3000);  // Total duration for transition and fade-out
+            }
+
+            // Update the last entry in the chart for the ticker
+            const chart = charts[`${ticker}Chart`];
+            if (chart) {
+                const lastIndex = chart.data.datasets[0].data.length - 1;
+                chart.data.datasets[0].data[lastIndex] = newPrice;
+                chart.update();
+            }
+        });
+    }
+
+    setInterval(fetchLatestPrices, 7000);
+
 
 
         // Store existing chart instances

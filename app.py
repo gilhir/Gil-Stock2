@@ -1,28 +1,13 @@
-from flask import Flask, render_template, request, redirect, url_for, send_from_directory, flash, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, send_from_directory, flash, session
 import os
 import pandas as pd
 import stock_utils
 import json
 import user_data_utils
 import git
-import pandas_market_calendars as mcal
-from datetime import datetime, timedelta
-
 
 app = Flask(__name__, template_folder='templates')
 app.secret_key = 'your_secret_key_here'  # Required for flash messages
-
-def market_is_open(date):
-    result = mcal.get_calendar("NYSE").schedule(start_date=date, end_date=date)
-    return not result.empty
-
-def next_market_open():
-    nyse = mcal.get_calendar("NYSE")
-    current_date = datetime.now()
-    while not market_is_open(current_date.strftime("%Y-%m-%d")):
-        current_date += timedelta(days=1)
-    next_open = nyse.schedule(start_date=current_date.strftime("%Y-%m-%d"), end_date=current_date.strftime("%Y-%m-%d"))
-    return next_open.iloc[0].market_open.strftime("%Y-%m-%d %H:%M:%S")
 
 @app.route('/')
 def home():
@@ -30,194 +15,141 @@ def home():
 
 @app.route('/results', methods=['GET', 'POST'])
 def results():
-    if request.method == 'POST':
-        try:
+    try:
+        if request.method == 'POST':
+            # Extract user input from the form
             user_id = request.form.get('user_id')
-
             tickers = [ticker.strip() for ticker in request.form.get('tickers', '').split(',')]
             watch_list = [ticker.strip() for ticker in request.form.get('watch_list', '').split(',')]
-            
-            # Remove duplicate tickers
-            tickers = list(set(tickers))
-            watch_list = list(set(watch_list))
-
+            tickers = list(set(tickers))  # Remove duplicates
+            watch_list = list(set(watch_list))  # Remove duplicates
             period = int(request.form.get('period', 150))
-            watch_list_period = int(request.form.get('watch_list_period', 150))
             watch_list_trend_days = int(request.form.get('watch_list_trend_days', 30))
-
-            tickers = [ticker for ticker in tickers]
-            watch_list = [ticker for ticker in watch_list]
-
             user_data = {
                 "default_tickers": request.form.get('tickers', ''),
                 "default_watch_list": request.form.get('watch_list', '')
             }
             user_data_utils.save_user_data(user_id, user_data)
-
-            tickers_data = stock_utils.fetch_and_store_stock_data(tickers + watch_list, period + 150)
-
-            results = {
-                "portfolio": [],
-                "watch_list": [],
-                "missing": []
-            }
             session['user_id'] = user_id
+            tickers_data = stock_utils.fetch_and_store_stock_data(tickers + watch_list, period + 150)
+            results = {"portfolio": [], "watch_list": [], "missing": []}
+            
+            # Process portfolio tickers
             for ticker in tickers:
-                try:
-                    if ticker in tickers_data and not tickers_data[ticker].empty:
-                        close_prices = tickers_data[ticker]
-                        if len(close_prices) >= 50:
-                            dates = close_prices.index[-50:].strftime('%Y-%m-%d').tolist()
-                            last_50_closes = close_prices[-50:].tolist()
-                            last_50_ma = close_prices.rolling(window=150).mean().iloc[-50:].tolist()
-                        else:
-                            dates = close_prices.index.strftime('%Y-%m-%d').tolist()
-                            last_50_closes = close_prices.tolist()
-                            last_50_ma = close_prices.rolling(window=150).mean().tolist()
+                process_ticker(ticker, tickers_data, results["portfolio"], missing_list=results["missing"])
 
-                        if len(close_prices) < 150:
-                            rolling_avg = None
-                            percentage_diff = None
-                            current_price = close_prices.iloc[-1] if len(close_prices) > 0 else None
-                        else:
-                            rolling_avg = close_prices.rolling(window=150).mean().iloc[-1]
-                            current_price = close_prices.iloc[-1]
-
-                        if rolling_avg is not None and not pd.isna(rolling_avg):
-                            percentage_diff = ((current_price - rolling_avg) / rolling_avg) * 100
-                            action = "Sell" if percentage_diff < 0 else ""
-                        else:
-                            percentage_diff = None
-                            action = "Insufficient Data"
-
-                        results["portfolio"].append({
-                            'ticker': ticker,
-                            'current_price': f"${current_price:.2f}" if current_price else "N/A",
-                            'average_price': f"${rolling_avg:.2f}" if rolling_avg else "N/A",
-                            'percentage_diff': f"{percentage_diff:.2f}%" if percentage_diff else "N/A",
-                            'action': action,
-                            'external_link': f"https://finance.yahoo.com/quote/{ticker}/chart",
-                            'last_50_closes': last_50_closes,
-                            'last_50_ma': last_50_ma,
-                            'dates': dates
-                        })
-                    else:
-                        results["missing"].append(ticker)
-                except Exception as e:
-                    print(f"DEBUG: Error processing ticker {ticker}: {e}")
-                    results["missing"].append(ticker)
-
-
+            # Process watch list tickers
             for ticker in watch_list:
-                try:
-                    if ticker in tickers_data and not tickers_data[ticker].empty:
-                        close_prices = tickers_data[ticker]
-                        if len(close_prices) >= 50:
-                            dates = close_prices.index[-50:].strftime('%Y-%m-%d').tolist()
-                            last_50_closes = close_prices[-50:].tolist()
-                            last_50_ma = close_prices.rolling(window=150).mean().iloc[-50:].tolist()
-                        else:
-                            dates = close_prices.index.strftime('%Y-%m-%d').tolist()
-                            last_50_closes = close_prices.tolist()
-                            last_50_ma = close_prices.rolling(window=150).mean().tolist()
+                process_ticker(ticker, tickers_data, results["watch_list"], watch_list_trend_days, period, missing_list=results["missing"])
 
-                        if len(close_prices) < 150:
-                            rolling_avg = None
-                            percentage_diff = None
-                        else:
-                            rolling_avg = close_prices.rolling(window=150).mean().iloc[-1]
-
-                        if rolling_avg is not None and not pd.isna(rolling_avg):
-                            current_price = close_prices.iloc[-1]
-                            percentage_diff = ((current_price - rolling_avg) / rolling_avg) * 100
-                        else:
-                            current_price = None
-                            percentage_diff = None
-                            action = "Insufficient Data"
-
-                        trend = stock_utils.check_upward_trend(close_prices, watch_list_trend_days, period)
-                        trend_status = "Upward" if trend else "Not upward"
-
-                        if trend_status == "Not upward":
-                            action = "Stay Away"
-                        elif trend_status == "Upward":
-                            if percentage_diff is not None and (-1.5 < percentage_diff < 1.5) and current_price > rolling_avg:
-                                action = "Buy"
-                            elif percentage_diff is not None and -2 < percentage_diff < 2 and current_price < rolling_avg:
-                                action = "Get Ready"
-                            elif percentage_diff is not None and percentage_diff > 1.5 and current_price > rolling_avg:
-                                action = "Next Time"
-                            else:
-                                action = "Non relevant"
-                        else:
-                            action = "Non relevant"
-
-                        external_link = f"https://finance.yahoo.com/quote/{ticker}/chart"
-
-                        results["watch_list"].append({
-                            'ticker': ticker,
-                            'current_price': f"${current_price:.2f}" if current_price else "N/A",
-                            'average_price': f"${rolling_avg:.2f}" if rolling_avg else "N/A",
-                            'percentage_diff': f"{percentage_diff:.2f}%" if percentage_diff else "N/A",
-                            'action': action,
-                            'trend_status': trend_status,
-                            'external_link': external_link,
-                            'last_50_closes': last_50_closes,
-                            'last_50_ma': last_50_ma,
-                            'dates': dates
-                        })
-                    else:
-                        results["missing"].append(ticker)
-                except Exception as e:
-                    print(f"DEBUG: Error processing ticker {ticker}: {e}")
-                    results["missing"].append(ticker)
-
-
+            user_data["results"] = results
             return render_template('results.html', results=results, missing_tickers=results["missing"], user_id=user_id)
-        except Exception as e:
-            print(f"DEBUG: Error processing request: {e}")
-            flash(f"An error occurred: {e}", "danger")
-            return redirect(url_for('home'))
 
-    elif request.method == 'GET':
-        results = session.get('results', None)
-        if results:
-            return render_template('results.html', results=results, missing_tickers=results["missing"])
+        elif request.method == 'GET':
+            results = user_data.get('results', None)
+            if not results:
+                print("No results available. Please submit your data first.", "warning")
+                return redirect(url_for('home'))
+
+            return render_template('results.html', results=results, missing_tickers=results.get("missing", []), user_id=user_id)
+
+    except Exception as e:
+        print(f"DEBUG: Error processing request: {e}")
+        flash(f"An error occurred: {e}", "danger")
+        return redirect(url_for('home'))
+    
+# Helper function to process each ticker for both portfolio and watch list
+def process_ticker(ticker, tickers_data, result_list, watch_list_trend_days=None, period=None, missing_list=None):
+    if ticker in tickers_data and not tickers_data[ticker].empty:
+        close_prices = tickers_data[ticker]
+        dates = close_prices.index[-50:].strftime('%Y-%m-%d').tolist()
+        last_50_closes = close_prices[-50:].tolist()
+        last_50_ma = close_prices.rolling(window=150).mean().iloc[-50:].tolist()
+
+        if len(close_prices) < 150:
+            rolling_avg = None
+            percentage_diff = None
+            current_price = close_prices.iloc[-1] if len(close_prices) > 0 else None
         else:
-            flash("No results to display. Please submit your data first.", "warning")
-            return redirect(url_for('home'))
+            rolling_avg = close_prices.rolling(window=150).mean().iloc[-1]
+            current_price = close_prices.iloc[-1]
+
+        if rolling_avg is not None and not pd.isna(rolling_avg):
+            percentage_diff = ((current_price - rolling_avg) / rolling_avg) * 100
+            action = "Sell" if percentage_diff < 0 else ""
+        else:
+            percentage_diff = None
+            action = "Insufficient Data"
+
+        result = {
+            'ticker': ticker,
+            'current_price': f"${current_price:.2f}" if current_price else "N/A",
+            'average_price': f"${rolling_avg:.2f}" if rolling_avg else "N/A",
+            'percentage_diff': f"{percentage_diff:.2f}%" if percentage_diff else "N/A",
+            'action': action,
+            'external_link': f"https://finance.yahoo.com/quote/{ticker}/chart",
+            'last_50_closes': last_50_closes,
+            'last_50_ma': last_50_ma,
+            'dates': dates
+        }
+
+        # For watch list, check the trend status
+        if watch_list_trend_days and period:
+            trend = stock_utils.check_upward_trend(close_prices, watch_list_trend_days, period)
+            trend_status = "Upward" if trend else "Not upward"
+
+            if trend_status == "Not upward":
+                action = "Stay Away"
+            elif trend_status == "Upward":
+                if percentage_diff is not None and (-1.5 < percentage_diff < 1.5) and current_price > rolling_avg:
+                    action = "Buy"
+                elif percentage_diff is not None and -2 < percentage_diff < 2 and current_price < rolling_avg:
+                    action = "Get Ready"
+                elif percentage_diff is not None and percentage_diff > 1.5 and current_price > rolling_avg:
+                    action = "Next Time"
+                else:
+                    action = "Non relevant"
+            else:
+                action = "Non relevant"
+
+            result['action'] = action
+            result['trend_status'] = trend_status
+
+        result_list.append(result)
+    else:
+        if missing_list is not None:
+            missing_list.append(ticker)
+
+    
 
 @app.route('/latest_prices', methods=['GET'])
 def latest_prices():
     try:
-        # Check if the market is open
-        today = datetime.now().strftime("%Y-%m-%d")
-        
-        if not market_is_open(today):
-            next_open = next_market_open()
-            return jsonify({
-                'market_status': 'closed',
-                'next_open': next_open
-            })
-        user_results_file = session.get('user_results_file', None)
-        
-        if user_results_file and os.path.exists(user_results_file):
-            with open(user_results_file, 'r') as f:
-                user_results = json.load(f)
-        else:
-            user_results = {"portfolio": [], "watch_list": []}
+        user_id = session.get('user_id')
+        if not user_id:
+            flash("User ID is required to fetch the latest prices.", "warning")
+            return json.dumps({'error': 'User ID is required'}), 400
 
-        tickers = [result['ticker'] for result in user_results['portfolio']] + \
-                  [result['ticker'] for result in user_results['watch_list']]
-        
+        user_data = user_data_utils.load_user_data(user_id)
+        if not user_data or user_id not in user_data:
+            flash(f"No data found for User ID '{user_id}'.", "warning")
+            return json.dumps({'error': f"No data found for User ID '{user_id}'"}), 404
+
+        # Extract tickers from default_tickers and default_watch_list
+        default_tickers = user_data[user_id].get("default_tickers", "")
+        default_watch_list = user_data[user_id].get("default_watch_list", "")
+        tickers = default_tickers.split(",") + default_watch_list.split(",")
+        tickers = [ticker.strip() for ticker in tickers if ticker.strip()]  # Clean up any empty strings or whitespace
+
+        # Get latest prices for all tickers
         latest_prices = {ticker: {'current_price': stock_utils.get_current_price(ticker)} for ticker in tickers}
-        
-        return jsonify({
-            'market_status': 'open',
-            'latest_prices': latest_prices
-        })
+        return json.dumps(latest_prices)
+
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        print(f"DEBUG: Error fetching latest prices: {e}")
+        flash(f"An error occurred while fetching prices: {e}", "danger")
+        return json.dumps({'error': str(e)}), 500
+
 
 
 
@@ -270,20 +202,13 @@ def user_data():
 
 @app.route('/update_server', methods=['POST'])
 def webhook():
-    if request.method == 'POST':
-        try:
-            # Use the local path where the repository is cloned
-            repo_path = '/'  # Update this with the correct path
-            repo = git.Repo(repo_path)
+        if request.method == 'POST':
+            repo = git.Repo('/')
             origin = repo.remotes.origin
-            origin.pull()  # This will fetch the latest changes from the remote
+            origin.pull()
             return 'Updated PythonAnywhere successfully', 200
-        except Exception as e:
-            print(f"Error: {e}")
-            return f"Error: {e}", 500
-    else:
-        return 'Wrong event type', 400
-
+        else:
+            return 'Wrong event type', 400
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

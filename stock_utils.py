@@ -20,9 +20,18 @@ def load_compressed(filename):
         return json.load(f)
 
 def get_current_price(ticker):
-    """Fetch the current price of a ticker."""
-    ticker_yahoo = yf.Ticker(ticker)
-    return ticker_yahoo.history(period="1d")["Close"].iloc[-1]
+    """Fetch the current price of a ticker. Return an empty string if unavailable."""
+    try:
+        ticker_yahoo = yf.Ticker(ticker)
+        history = ticker_yahoo.history(period="1d")
+        if not history.empty:
+            return history["Close"].iloc[-1]
+        else:
+            return ""
+    except Exception as e:
+        print(f"Error fetching price for ticker {ticker}: {e}")
+        return ""
+
 
 def process_ticker_data(ticker, new_data, data, start_date, end_date):
     stored_data = data["historical_data"].get(ticker, {"prices": [], "last_updated": None})
@@ -30,6 +39,10 @@ def process_ticker_data(ticker, new_data, data, start_date, end_date):
     last_updated_date = (
         datetime.datetime.strptime(last_updated, "%Y-%m-%d").date() if last_updated else None
     )
+
+    # Skip if already updated
+    if last_updated_date == end_date:
+        return
 
     # Safeguard: Check if `new_data` is None or empty
     if new_data is None or new_data.empty:
@@ -56,7 +69,7 @@ def process_ticker_data(ticker, new_data, data, start_date, end_date):
         if datetime.datetime.strptime(entry[0], "%Y%m%d").date() >= start_date
     ]
 
-    # Truncate to the most recent 300 entries
+    # **Truncate to the most recent 300 entries**
     stored_data["prices"] = stored_data["prices"][-300:]
 
     # Save updated data back to the historical data store
@@ -113,13 +126,7 @@ def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.g
             if ticker_data is not None:
                 for ticker in tickers_batch_to_process:
                     if ticker in ticker_data:
-                        # Ensure there is valid data for the ticker
-                        if not ticker_data[ticker].empty:
-                            process_ticker_data(ticker, ticker_data[ticker], data, start_date, end_date)
-                        else:
-                            print(f"Warning: No valid data for ticker {ticker}")
-                    else:
-                        print(f"Warning: Ticker {ticker} not found in fetched data")
+                        process_ticker_data(ticker, ticker_data[ticker], data, start_date, end_date)
 
     # Step 4: Update global last updated date and save data
     data["global_last_updated"] = end_date.strftime("%Y-%m-%d")
