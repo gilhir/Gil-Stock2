@@ -5,6 +5,7 @@ import stock_utils
 import json
 import user_data_utils
 import git
+import datetime
 
 app = Flask(__name__, template_folder='templates')
 app.secret_key = 'your_secret_key_here'  # Required for flash messages
@@ -134,15 +135,26 @@ def latest_prices():
         if not user_data or user_id not in user_data:
             flash(f"No data found for User ID '{user_id}'.", "warning")
             return json.dumps({'error': f"No data found for User ID '{user_id}'"}), 404
+        
+        current_date = datetime.datetime.now()
+        if not stock_utils.market_is_open_now(current_date):
+            next_open = stock_utils.next_market_open()
+            return json.dumps({'market_status': 'closed','next_open': next_open}), 200
 
         # Extract tickers from default_tickers and default_watch_list
         default_tickers = user_data[user_id].get("default_tickers", "")
         default_watch_list = user_data[user_id].get("default_watch_list", "")
         tickers = default_tickers.split(",") + default_watch_list.split(",")
         tickers = [ticker.strip() for ticker in tickers if ticker.strip()]  # Clean up any empty strings or whitespace
-
-        # Get latest prices for all tickers
-        latest_prices = {ticker: {'current_price': stock_utils.get_current_price(ticker)} for ticker in tickers}
+        latest_prices = {}
+        for ticker in tickers:
+            current_price = stock_utils.get_current_price(ticker)
+            if not current_price != current_price:
+                try:
+                    formatted_price = f"{current_price:.2f}"
+                    latest_prices[ticker] = {'current_price': formatted_price}
+                except ValueError:
+                    print(f"Invalid price for ticker {ticker}: {current_price}")
         return json.dumps(latest_prices)
 
     except Exception as e:

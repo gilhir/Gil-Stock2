@@ -3,6 +3,7 @@ import datetime
 import yfinance as yf
 import pandas as pd
 import gzip
+import pandas_market_calendars as mcal
 import json
 
 
@@ -18,6 +19,32 @@ def load_compressed(filename):
         return {"global_last_updated": None, "historical_data": {}}
     with gzip.open(filename, "rt", encoding="utf-8") as f:
         return json.load(f)
+    
+def market_is_open_now(date):
+    now = datetime.datetime.now()
+    result = mcal.get_calendar("NYSE").schedule(start_date=now.date(), end_date=date)
+    if result.empty:
+        return False
+    market_open = result.iloc[0]['market_open'].time()
+    market_close = result.iloc[0]['market_close'].time()
+    current_time = now.time()
+    return market_open <= current_time < market_close
+
+def market_is_open(date):
+    result = mcal.get_calendar("NYSE").schedule(start_date=date, end_date=date)
+    return not result.empty
+
+def next_market_open():
+    nyse = mcal.get_calendar("NYSE")
+    current_daten = datetime.datetime.now()
+    current_date = datetime.datetime.now().date()
+    if not market_is_open_now(current_daten):
+        current_date += datetime.timedelta(days=1)
+    while not market_is_open(current_date.strftime("%Y-%m-%d")):
+        current_date += datetime.timedelta(days=1)
+    next_open = nyse.schedule(start_date=current_date.strftime("%Y-%m-%d"), end_date=current_date.strftime("%Y-%m-%d"))
+    return next_open.iloc[0].market_open.strftime("%Y-%m-%d %H:%M:%S")
+
 
 def get_current_price(ticker):
     """Fetch the current price of a ticker. Return an empty string if unavailable."""
@@ -27,10 +54,10 @@ def get_current_price(ticker):
         if not history.empty:
             return history["Close"].iloc[-1]
         else:
-            return ""
+            return float("nan")
     except Exception as e:
         print(f"Error fetching price for ticker {ticker}: {e}")
-        return ""
+        return float("nan")
 
 
 def process_ticker_data(ticker, new_data, data, start_date, end_date):

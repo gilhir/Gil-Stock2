@@ -19,7 +19,10 @@
         <h1>Stock Analysis Results</h1>
         <p>Hello {{ user_id }}</p>
     </header>
-    
+    <!-- Market Closed Notice -->
+    <div id="market-closed-notice" class="alert alert-warning text-center" style="display: none;">
+    The market is currently closed. Prices will not be updated until further notice.
+    </div>
     <div class="container mt-4">
         <!-- Alert for missing tickers -->
         {% if missing_tickers %}
@@ -125,7 +128,6 @@
         // Close alert dynamically
         document.addEventListener("DOMContentLoaded", function () {
             const alertCloseButtons = document.querySelectorAll(".alert .btn-close");
-
             alertCloseButtons.forEach(button => {
                 button.addEventListener("click", function () {
                     this.closest(".alert").remove();
@@ -142,25 +144,49 @@
             }, 30000); // 30 seconds
         });
 
+        let marketCheckInterval;
+        let marketReopenTimeout;
+
         // Function to fetch the latest stock prices
     async function fetchLatestPrices() {
         try {
             const response = await fetch('/latest_prices');
             const data = await response.json();
-            updatePricesAndCharts(data);
+            const marketClosedNotice = document.getElementById('market-closed-notice');
+            if (data.market_status === 'closed') {
+                marketClosedNotice.style.display = 'block';
+                marketClosedNotice.style.opacity = '1';
+                marketClosedNotice.innerText = `The market is currently closed. Prices will not be updated until ${data.next_open}.`;
+                clearInterval(marketCheckInterval);
+                const nextOpenTime = new Date(data.next_open).getTime();
+                const currentTime = new Date().getTime();
+                const timeUntilOpen = nextOpenTime - currentTime;
+                console.log(`market closed time untill open: ${timeUntilOpen}`);
+                marketReopenTimeout = setTimeout(() => {
+                console.log("Setting interval for market check after reopening.");
+                marketCheckInterval = setInterval(fetchLatestPrices, 7000);
+                fetchLatestPrices();  // Immediate fetch when market opens
+            }, timeUntilOpen);
+            }else{
+                marketClosedNotice.style.display = 'none';
+                marketClosedNotice.style.opacity = '0';
+                updatePricesAndCharts(data);
+            }
         } catch (error) {
             console.error('Error fetching latest prices:', error);
         }
     }
+    fetchLatestPrices();
+    marketCheckInterval = setInterval(fetchLatestPrices, 7000);
 
     // Function to update prices and charts on the page
     function updatePricesAndCharts(data) {
         Object.keys(data).forEach(ticker => {
             const priceElement = document.getElementById(`price-${ticker}`);
             const currentPrice = parseFloat(priceElement.innerText.replace('$', ''));
-            const newPrice = data[ticker].current_price;
+            const newPrice = parseFloat(data[ticker].current_price);
 
-            if (newPrice !== currentPrice) {
+            if (newPrice.toFixed(2) !== currentPrice.toFixed(2)) {
                 priceElement.innerText = `$${newPrice.toFixed(2)}`;
                 priceElement.classList.add(newPrice > currentPrice ? 'highlight-green' : 'highlight-red');
                 
@@ -174,19 +200,33 @@
                     priceElement.classList.remove('fade-out');
                 }, 3000);  // Total duration for transition and fade-out
             }
-
-            // Update the last entry in the chart for the ticker
-            const chart = charts[`${ticker}Chart`];
-            if (chart) {
-                const lastIndex = chart.data.datasets[0].data.length - 1;
-                chart.data.datasets[0].data[lastIndex] = newPrice;
-                chart.update();
+            function findChartByTicker(charts, ticker) {
+                for (let key in charts) {
+                    if (key.startsWith(`${ticker}`))
+                    {
+                    return charts[key]; 
+                    }
+                }
+                return null;
             }
+            const chart = findChartByTicker(charts, ticker);
+            if (chart) {
+                const labels = chart.data.labels;
+                const data = chart.data.datasets[0].data;
+                const today = new Date().toISOString().split('T')[0];
+                const dateIndex = labels.indexOf(today);
+
+                if (dateIndex !== -1) {
+                    data[dateIndex] = newPrice.toFixed(2);
+                } else {
+                    labels.push(today);
+                    data.push(newPrice.toFixed(2));
+                }
+
+                chart.update();
+            }   
         });
     }
-
-    setInterval(fetchLatestPrices, 7000);
-
 
 
         // Store existing chart instances
@@ -243,12 +283,6 @@
             };
 
             charts[chartId] = new Chart(ctx, chartData);
-
-            // Debugging information
-            console.log('Rendering chart for:', chartId);
-            console.log('Labels:', labels);
-            console.log('Close Prices:', closePrices);
-            console.log('Moving Averages:', movingAverages);
         }
 
         // Initialize charts for portfolio and watchlist
