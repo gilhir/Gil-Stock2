@@ -28,3 +28,13 @@ def save_user_data(user_id, data):
             json.dump(user_data, file, indent=4)
     except TypeError as e:
         print(f"Error saving user data: {e}")
+
+def get_all_user_ids():
+    if os.path.exists(USER_DATA_FILE):
+        with open(USER_DATA_FILE, 'r') as file:
+            try:
+                user_data = json.load(file)
+                return list(user_data.keys())
+            except json.decoder.JSONDecodeError as e:
+                return []
+    return []

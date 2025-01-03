@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Visualization</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='heatmap.css') }}">
+    <style>
+        .btn-group {
+            margin-bottom: 20px;
+        }
+        .btn {
+            padding: 5px 10px; /* Make the buttons smaller */
+            font-size: 12px;   /* Adjust font size */
+        }
+    </style>
+</head>
+<body>
+    <header class="bg-dark text-white text-center py-3">
+        <h1>Stock Weight Visualization</h1>
+        <p>Hello {{ user_id }}</p>
+        <div class="d-flex justify-content-center">
+            <button class="btn btn-secondary mx-2" onclick="window.location.href='/edit'">
+                <i class="fas fa-edit"></i> Edit
+            </button>
+            <a href="{{ url_for('heatmap') }}" class="btn btn-primary mx-2">
+                <i class="fas fa-chart-heatmap"></i> View Heatmap
+            </a>
+            <a href="{{ url_for('heatmap') }}" class="btn btn-info mx-2">
+                <i class="fas fa-database"></i> Update Heatmap Data
+            </a>
+        </div>
+    </header>
+    <div class="container">
+        <div class="btn-group" role="group">
+            <button type="button" class="btn btn-primary" onclick="fetchStockPerformance('1day')">1 Day</button>
+            <button type="button" class="btn btn-primary" onclick="fetchStockPerformance('5days')">5 Days</button>
+            <button type="button" class="btn btn-primary" onclick="fetchStockPerformance('1month')">1 Month</button>
+            <button type="button" class="btn btn-primary" onclick="fetchStockPerformance('3months')">3 Months</button>
+            <button type="button" class="btn btn-primary" onclick="fetchStockPerformance('6months')">6 Months</button>
+            <button type="button" class="btn btn-primary" onclick="fetchStockPerformance('1year')">1 Year</button>
+            <button type="button" class="btn btn-primary" onclick="fetchStockPerformance('3years')">3 Years</button>
+            <button type="button" class="btn btn-primary" onclick="fetchStockPerformance('alltime')">All Time</button>
+        </div>
+        <div id="stock-map"></div>
+        <div class="legend">
+            <div class="legend-item" id="legend-min" style="background-color: darkred;"></div>
+            <div class="legend-item" style="background-color: rgb(242, 54, 69);"></div>
+            <div class="legend-item" style="background-color: rgb(247, 124, 128);"></div>
+            <div class="legend-item" style="background-color: rgb(193, 196, 205);"></div>
+            <div class="legend-item" style="background-color: rgb(66, 189, 127);"></div>
+            <div class="legend-item" style="background-color: rgb(8, 153, 80);"></div>
+            <div class="legend-item" id="legend-max" style="background-color: darkgreen;"></div>
+        </div>        
+    </div>
+
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <script>
+        const tickerData = {{ ticker_data | tojson }};
+    </script>
+    <script src="{{ url_for('static', filename='heatmap.js') }}"></script>
+    <script>
+        function fetchStockPerformance(period) {
+            const userId = {{ user_id|tojson }};
+            fetch(`/stock_performance/${userId}?period=${period}`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data); // Log the data for debugging
+                    // Here you would update your D3 visualization with the new data
+                    updateVisualization(data);
+                })
+                .catch(error => {
+                    console.error('Error fetching stock performance data:', error);
+                });
+        }
+    
+        function updateVisualization(data) {
+            // Your code to update the D3 visualization with the new data
+            // Example:
+            d3.select("#stock-map").selectAll("*").remove(); // Clear the existing visualization
+            
+            // Use D3 to create a new visualization based on the fetched data
+            // ...
+        }
+    </script>
+    
+</body>
+</html>

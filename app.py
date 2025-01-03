@@ -163,8 +163,6 @@ def latest_prices():
         return json.dumps({'error': str(e)}), 500
 
 
-
-
 @app.route('/new_user', methods=['GET', 'POST'])
 def new_user():
     if request.method == 'POST':
@@ -221,6 +219,193 @@ def webhook():
             return 'Updated PythonAnywhere successfully', 200
         else:
             return 'Wrong event type', 400
+
+@app.route('/user_tickers/<user_id>', methods=['GET'])
+def user_tickers(user_id):
+    try:
+        user_data = user_data_utils.load_user_data(user_id)
+        if not user_data or user_id not in user_data:
+            return json.dumps({'tickers': []}), 404
+
+        tickers = user_data[user_id].get("default_tickers", "").split(",")
+        tickers = [ticker.strip() for ticker in tickers if ticker.strip()]
+        return json.dumps({'tickers': tickers})
+
+    except Exception as e:
+        print(f"DEBUG: Error fetching user tickers: {e}")
+        return json.dumps({'tickers': []}), 500
+
+@app.route('/heatmap')
+def heatmap():
+    user_ids = user_data_utils.get_all_user_ids()
+    return render_template('heatmap.html', user_ids=user_ids)
+
+@app.route('/heatmap_data/<user_id>', methods=['POST'])
+def update_heatmap_data(user_id):
+    try:
+        ticker_data = request.get_json()  # Get the JSON data from the request
+
+        tickers = list(ticker_data.keys())
+        tickers_data = stock_utils.fetch_and_store_stock_data(tickers, 1)  # Fetch current stock prices
+
+        # Combine entries for the same stock and get current prices
+        combined_ticker_data = {}
+        for ticker, entries in ticker_data.items():
+            current_price = tickers_data[ticker].iloc[-1] if ticker in tickers_data and not tickers_data[ticker].empty else 0
+            total_number_of_stocks = sum(entry['number_of_stocks'] for entry in entries)
+            total_cash_in_market = total_number_of_stocks * current_price  # Calculate total_cash_in_market based on current_price
+            percentage_diffs = [((current_price - entry['purchase_price']) / entry['purchase_price']) * 100 if entry['purchase_price'] != 0 else 0 for entry in entries]
+
+            combined_ticker_data[ticker] = {
+                'number_of_stocks': total_number_of_stocks,
+                'total_cash_in_market': total_cash_in_market,
+                'current_price': current_price,
+                'percentage_diff': sum(percentage_diffs) / len(percentage_diffs) if percentage_diffs else 0,
+                'entries': entries  # Keep the original entries for reference
+            }
+
+        # Calculate total cash in market for the portfolio based on current prices
+        total_cash = sum(data['total_cash_in_market'] for data in combined_ticker_data.values())
+
+        # Calculate weight for each ticker based on aggregated total_cash_in_market
+        for ticker, data in combined_ticker_data.items():
+            data['weight'] = data['total_cash_in_market'] / total_cash if total_cash > 0 else 0
+
+        # Reconstruct the original ticker_data with the combined fields
+        for ticker, data in ticker_data.items():
+            for entry in data:
+                entry['current_price'] = combined_ticker_data[ticker]['current_price']
+                entry['total_cash_in_market'] = combined_ticker_data[ticker]['total_cash_in_market']
+                entry['percentage_diff'] = combined_ticker_data[ticker]['percentage_diff']
+                entry['weight'] = combined_ticker_data[ticker]['weight']
+
+        # Save the ticker data to a file or database
+        with open(f'heatmap_data_{user_id}.json', 'w') as f:
+            json.dump(ticker_data, f, indent=4)
+
+        return json.dumps({"message": "Data updated successfully"}), 200
+
+    except Exception as e:
+        print(f"DEBUG: Error saving heatmap data: {e}")
+        return json.dumps({"error": str(e)}), 500
+
+
+@app.route('/heatmap_data/<user_id>/<ticker>', methods=['GET'])
+def get_heatmap_data(user_id, ticker):
+    try:
+        file_path = f'heatmap_data_{user_id}.json'
+        if os.path.exists(file_path):
+            with open(file_path, 'r') as f:
+                ticker_data = json.load(f)
+                return json.dumps(ticker_data.get(ticker, []))
+        return json.dumps([])
+    except Exception as e:
+        print(f"DEBUG: Error fetching heatmap data for {user_id} and {ticker}: {e}")
+        return json.dumps([]), 500
+
+@app.route('/heatmap_data/<user_id>/<ticker>', methods=['POST'])
+def update_single_ticker_data(user_id, ticker):
+    try:
+        data = request.get_json()  # Get the JSON data from the request
+        file_path = f'heatmap_data_{user_id}.json'
+        
+        # Read existing data if the file exists, otherwise start with an empty dict
+        if os.path.exists(file_path):
+            with open(file_path, 'r') as f:
+                ticker_data = json.load(f)
+        else:
+            ticker_data = {}
+
+        # Ensure the data for the ticker is a list
+        ticker_data[ticker] = data  # Directly assign the list
+
+        # Save the updated data back to the file
+        with open(file_path, 'w') as f:
+            json.dump(ticker_data, f, indent=4)
+
+        return json.dumps({'success': True}), 200
+
+    except Exception as e:
+        print(f"DEBUG: Error updating heatmap data for {user_id} and {ticker}: {e}")
+        return json.dumps({'success': False}), 500
+
+
+@app.route('/heatmap_data/<user_id>', methods=['GET'])
+def get_all_heatmap_data(user_id):
+    try:
+        file_path = f'heatmap_data_{user_id}.json'
+        if os.path.exists(file_path):
+            with open(file_path, 'r') as f:
+                ticker_data = json.load(f)
+                return json.dumps(ticker_data)
+        return json.dumps({})
+    except Exception as e:
+        print(f"DEBUG: Error fetching all heatmap data for {user_id}: {e}")
+        return json.dumps({}), 500
+
+@app.route('/visualization/')
+def visualization():
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return redirect(url_for('home'))  # Redirect to home if user_id is not in session
+        
+        file_path = f'heatmap_data_{user_id}.json'
+        if os.path.exists(file_path):
+            with open(file_path, 'r') as f:
+                ticker_data = json.load(f)
+        else:
+            ticker_data = {}
+
+        return render_template('visualization.html', ticker_data=ticker_data, user_id=user_id)
+
+    except Exception as e:
+        print(f"DEBUG: Error fetching visualization data for {user_id}: {e}")
+        return json.dumps({"error": str(e)}), 500
+
+@app.route('/stock_performance/<user_id>', methods=['GET'])
+def stock_performance(user_id):
+    try:
+        period = request.args.get('period')
+        period_mapping = {
+            '1day': 1,
+            '5days': 5,
+            '1month': 30,
+            '3months': 90,
+            '6months': 180,
+            '1year': 365,
+            '3years': 1095,
+            'alltime': 10000  # Arbitrary large number for all time
+        }
+        days = period_mapping.get(period, 10000)
+
+        user_data = user_data_utils.load_user_data(user_id)
+        if not user_data or user_id not in user_data:
+            return json.dumps({'error': 'User ID not found'}), 404
+
+        tickers = user_data[user_id].get("default_tickers", "").split(",")
+        tickers = [ticker.strip() for ticker in tickers if ticker.strip()]
+
+        # Fetch stock data for the specified period
+        stock_data = stock_utils.fetch_and_store_stock_data(tickers, days)
+
+        # Prepare performance data based on the fetched stock data
+        performance_data = {}
+        for ticker in tickers:
+            if ticker in stock_data:
+                performance_data[ticker] = stock_data[ticker].to_dict()
+
+        return json.dumps(performance_data)
+    except Exception as e:
+        print(f"DEBUG: Error fetching stock performance data: {e}")
+        return json.dumps({'error': str(e)}), 500
+
+
+def fetch_stock_performance(user_id, start_date, end_date):
+    # Your function to fetch stock performance data from your data source
+    # based on the user_id, start_date, and end_date
+    pass
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
