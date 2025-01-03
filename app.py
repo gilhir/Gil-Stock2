@@ -389,22 +389,48 @@ def stock_performance(user_id):
         # Fetch stock data for the specified period
         stock_data = stock_utils.fetch_and_store_stock_data(tickers, days)
 
-        # Prepare performance data based on the fetched stock data
+        # Fetch today's price using get_current_price function
+        current_prices = {ticker: stock_utils.get_current_price(ticker) for ticker in tickers}
+
+        # Load weight data from heatmap data
+        heatmap_data = load_heatmap_data(user_id)
+
+        # Calculate performance and prepare the JSON response
         performance_data = {}
         for ticker in tickers:
             if ticker in stock_data:
-                performance_data[ticker] = stock_data[ticker].to_dict()
+                # Get the date 5 days ago
+                dates = sorted(stock_data[ticker].keys())
+                date_5_days_ago = dates[-days] if len(dates) >= days else dates[0]
+                old_price = stock_data[ticker][date_5_days_ago]
+                new_price = current_prices.get(ticker, 0)
+                percentage_change = ((new_price - old_price) / old_price) * 100 if old_price else 0
+
+                weight_data = heatmap_data.get(ticker, [{}])[0].get('weight', 0)
+
+                performance_data[ticker] = {
+                    'percentage_change': percentage_change,
+                    'weight': weight_data
+                }
 
         return json.dumps(performance_data)
     except Exception as e:
         print(f"DEBUG: Error fetching stock performance data: {e}")
         return json.dumps({'error': str(e)}), 500
 
+import json
 
-def fetch_stock_performance(user_id, start_date, end_date):
-    # Your function to fetch stock performance data from your data source
-    # based on the user_id, start_date, and end_date
-    pass
+def load_heatmap_data(user_id):
+    try:
+        with open(f'heatmap_data_{user_id}.json', 'r') as f:
+            heatmap_data = json.load(f)
+        return heatmap_data
+    except FileNotFoundError:
+        print(f"DEBUG: Heatmap data file for user {user_id} not found.")
+        return {}
+
+# Example usage:
+# heatmap_data = load_heatmap_data(user_id)
 
 
 if __name__ == "__main__":
