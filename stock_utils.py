@@ -20,6 +20,8 @@ def load_compressed(filename):
     with gzip.open(filename, "rt", encoding="utf-8") as f:
         return json.load(f)
     
+from pytz import timezone
+
 def market_is_open_now(date):
     now = datetime.datetime.now()
     result = mcal.get_calendar("NYSE").schedule(start_date=now.date(), end_date=date)

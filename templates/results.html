@@ -1,316 +1,528 @@
 <!DOCTYPE html>
-<html lang="en">
+    <html lang="en">
+
+    
+<!-- Mirrored from coderthemes.com/hyper/saas/index.html by HTTrack Website Copier/3.x [XR&CO'2014], Fri, 29 Jul 2022 10:18:47 GMT -->
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stock Analysis Results</title>
+        <meta charset="utf-8" />
+        <title>Stock Analysis</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta content="A fully featured admin theme which can be used to build CRM, CMS, etc." name="description" />
+        <meta content="Coderthemes" name="author" />
+        <!-- App favicon -->
+        <link rel="shortcut icon" href="{{ url_for('static', filename='images/favicon.ico') }}">
+        <!-- third party css -->
+        <link href="{{ url_for('static', filename='css/vendor/jquery-jvectormap-1.2.2.css') }}" rel="stylesheet" type="text/css" />
+        <!-- third party css end -->
 
-    <!-- External Stylesheets -->
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+        <!-- App css -->
+        <link href="{{ url_for('static', filename='css/icons.min.css') }}" rel="stylesheet" type="text/css" />
+        <link href="{{ url_for('static', filename='css/app.min.css') }}" rel="stylesheet" type="text/css" id="app-style"/>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <style>
+            .bg-light-red {
+    background-color: #f8d7da;
+}
 
-    <!-- Chart.js CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-</head>
-<body>
-    <header class="bg-dark text-white text-center py-3">
-        <h1>Stock Analysis Results</h1>
-        <p>Hello {{ user_id }}</p>
-        <div class="d-flex justify-content-center">
-            <button class="btn btn-secondary mx-2" onclick="window.location.href='/edit'">
-                <i class="fas fa-edit"></i> Edit
-            </button>
-            <a href="{{ url_for('heatmap') }}" class="btn btn-primary mx-2">
-                <i class="fas fa-chart-heatmap"></i> View Heatmap
-            </a>
-            <a href="{{ url_for('heatmap') }}" class="btn btn-info mx-2">
-                <i class="fas fa-database"></i> Update Heatmap Data
-            </a>
-        </div>
-    </header>
-    <!-- Market Closed Notice -->
-    <div id="market-closed-notice" class="alert alert-warning text-center" style="display: none;">
-    The market is currently closed. Prices will not be updated until further notice.
-    </div>
-    <div class="container mt-4">
-        <!-- Alert for missing tickers -->
-        {% if missing_tickers %}
-        <div id="alert" class="alert alert-danger alert-dismissible fade show" role="alert">
-            <strong>Warning!</strong> The following tickers could not be found: <span id="missing-tickers">{{ missing_tickers | join(', ') }}</span>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-        {% endif %}
+.bg-light-green {
+    background-color: #d4edda;
+}
 
-        {% set sorted_portfolio = results.portfolio | sort(attribute='action', reverse=true) %}
-        <!-- Portfolio Section -->
-        <section>
-            <div class="container">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h2>My Portfolio</h2>
-                    <button class="btn btn-secondary" onclick="window.location.href='/edit'">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                </div>
-            <div class="row">
-                {% for result in sorted_portfolio %}
-                <div class="col-lg-4 col-md-6 mb-4">
-                    <div class="card {% if result.action == 'Sell' %} bg-light-red {% endif %}">
-                        <div class="card-body">
-                            <h5 class="card-title"><a href="{{ result.external_link }}" target="_blank">{{ result.ticker }}</a></h5>
-                            <p class="card-text">Current Price: <span id="price-{{ result.ticker }}">{{ result.current_price }}</span></p>
-                            <p class="card-text">Average Price: {{ result.average_price }}</p>
-                            <p class="card-text">Percentage Difference: {{ result.percentage_diff }}</p>
-                            {% if result.trend_status %}
-                            <p class="card-text">Trend Status: {{ result.trend_status }}</p>
-                            {% endif %}
-                            <div class="chart-container" style="position: relative; height:240px; width:auto">
-                                <canvas id="{{ result.ticker }}Chart"></canvas>
-                            </div>
-                        </div>
+.bg-light-orange {
+    background-color: #ffeeba;
+}
+
+.bg-light-pink {
+    background-color: #f8d7da;
+}
+
+/* Highlight Styles */
+.highlight-green {
+    background-color: lightgreen;
+    transition: background-color 1s ease;
+}
+
+.highlight-red {
+    background-color: lightcoral;
+    transition: background-color 1s ease;
+}
+
+.fade-out {
+    transition: background-color 2s ease; /* Smooth transition for fading out */
+}
+
+@keyframes fadeOut {
+    from { background-color: inherit; }
+    to { background-color: transparent; }
+}
+
+        </style>
+               </style>
+               <script>
+                   var staticFilePath = "{{ url_for('static', filename='leftsidemenu.html') }}";
+                   document.addEventListener('DOMContentLoaded', function() {
+                       fetch(staticFilePath)
+                           .then(response => response.text())
+                           .then(data => {
+                               document.getElementById('leftside-menu').innerHTML = data;
+                               var currentPath = window.location.pathname;
+                               var navLinks = document.querySelectorAll('.side-nav-link');
+                               navLinks.forEach(function(link) {
+                                   // Get the href attribute of the link
+                                   var linkPath = new URL(link.href).pathname;
+                                   // Compare the link path with the current path
+                                   if (linkPath === currentPath) {
+                                       // Add the active class to the link and the parent li element
+                                       link.classList.add('active');
+                                       link.parentElement.classList.add('menuitem-active');
+                                   }
+                               });
+                           })
+                           .catch(error => console.error('Error fetching the menu:', error));
+                   });
+                   var navbarcustom = "{{ url_for('static', filename='navbar-custom.html') }}";
+                   var userId = "{{ user_id }}";
+                   imagetochange = "{{ url_for('static', filename='images/tomer.gif') }}";
+       
+                   document.addEventListener('DOMContentLoaded', function() {
+                       fetch(navbarcustom)
+                           .then(response => response.text())
+                           .then(data => {
+                               var navbarElement = document.getElementsByClassName('navbar-custom')[0];
+                               navbarElement.innerHTML = data;
+       
+                               // Inject user data
+                               navbarElement.querySelector('.account-user-name').innerText = userId;
+       
+                               // Set the image source correctly
+                               navbarElement.querySelector('.rounded-circletom').src = imagetochange;
+                           })
+                           .catch(error => console.error('Error fetching the menu:', error));
+                   });
+       
+               </script>
+    </head>
+
+    <body class="loading" data-layout-color="light" data-leftbar-theme="dark" data-layout-mode="fluid" data-rightbar-onstart="true">
+        <!-- Begin page -->
+        <div class="wrapper">
+            <!-- ========== Left Sidebar Start ========== -->
+            <div id="leftside-menu" class="leftside-menu"></div>
+
+            <!-- ============================================================== -->
+            <!-- Start Page Content here -->
+            <!-- ============================================================== -->
+
+            <div class="content-page">
+                <div class="content">
+                    <!-- Topbar Start -->
+                    <div class="navbar-custom">
                     </div>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-        </section>
-        
-        <!-- Watch List Section -->
-        <section>
-            <h2>My Watch List</h2>
-            <div class="row">
-                {% for action in ['Buy', 'Get Ready', 'Next Time', 'Stay Away', 'Non relevant'] %}
-                    {% for result in results.watch_list if result.action == action %}
-                    <div class="col-lg-4 col-md-6 mb-4">
-                        <div class="card 
-                            {% if result.action == 'Sell' %} bg-light-red 
-                            {% elif result.action == 'Buy' %} bg-light-green 
-                            {% elif result.action == 'Get Ready' %} bg-light-orange 
-                            {% elif result.action == 'Next Time' %} bg-light-pink 
-                            {% endif %}">
-                            <div class="card-body">
-                                <h5 class="card-title"><a href="{{ result.external_link }}" target="_blank">{{ result.ticker }}</a></h5>
-                                <p class="card-text">Current Price: <span id="price-{{ result.ticker }}">{{ result.current_price }}</span></p>
-                                <p class="card-text">Rolling Average Price: {{ result.average_price }}</p>
-                                <p class="card-text">Percentage Difference: {{ result.percentage_diff }}</p>
-                                <p class="card-text action-{{ result.action | lower | replace(' ', '-') }}">{{ result.action }}</p>
-                                {% if result.trend_status %}
-                                <p class="card-text">Trend Status: {{ result.trend_status }}</p>
-                                {% endif %}
-                                <div class="chart-container" style="position: relative; height:240px; width:auto">
-                                    <canvas id="{{ result.ticker }}WatchListChart"></canvas>
+                    <!-- end Topbar -->
+                    
+                    <!-- Start Content-->
+                    <div class="container-fluid">
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="page-title-box">
+                                    <h4 class="page-title">My Portfolio</h4>
                                 </div>
                             </div>
                         </div>
+                        <div id="market-closed-notice" class="alert alert-warning text-center" style="display: none;" class="alert alert-warning alert-dismissible fade show mb-3" role="alert">
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            The market is currently closed. Prices will not be updated until further notice.
+                        </div>
+                        <!-- end row -->
+                        {% set sorted_portfolio = results.portfolio | sort(attribute='action', reverse=true) %}
+                        <div class="row">
+                                <div class="row">
+                                    {% for result in sorted_portfolio %}
+                                    <div class="col-md-4 col-sm-6 mb-4">
+                                        <div class="card {% if result.action == 'Sell' %} bg-light-red {% endif %}">
+                                            <div class="card-body">
+                                                <div class="dropdown float-end">
+                                                    <a href="#" class="dropdown-toggle arrow-none card-drop" data-bs-toggle="dropdown" aria-expanded="false">
+                                                        <i class="mdi mdi-dots-horizontal"></i>
+                                                    </a>
+                                                    <div class="dropdown-menu dropdown-menu-end">
+                                                        <!-- item-->
+                                                        <a href="javascript:void(0);" class="dropdown-item"><i class="mdi mdi-cached me-1"></i>Refresh</a>
+                                                        <!-- item-->
+                                                        <a href="javascript:void(0);" class="dropdown-item"><i class="mdi mdi-circle-edit-outline me-1"></i>Edit</a>
+                                                        <!-- item-->
+                                                        <a href="javascript:void(0);" class="dropdown-item text-danger"><i class="mdi mdi-delete-outline me-1"></i>Remove</a>
+                                                    </div>
+                                                </div>
+                                                <div class="d-flex">
+                                                    <div class="flex-shrink-0">
+                                                        <div class="avatar-sm rounded">
+                                                            <span class="avatar-title bg-primary-lighten h3 my-0 text-primary rounded">
+                                                                <i class="mdi mdi-currency-usd"></i>
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="flex-grow-1 ms-3">
+                                                        <h4 class="mt-0 mb-1 font-20"><a href="{{ result.external_link }}" target="_blank">{{ result.ticker }}</a></h4>
+                                                        <p class="mb-0 text-muted"><i id="arrow-{{ result.ticker }}" class="mdi mdi-arrow-up-bold text-success"></i><span id="price-{{ result.ticker }}">{{ result.current_price }}</span></p>
+                                                        <p class="card-text">Average Price: {{ result.average_price }}</p>
+                                                        <p class="card-text">Percentage Difference: {{ result.percentage_diff }}</p>
+                                                        {% if result.trend_status %}
+                                                        <p class="card-text">Trend Status: {{ result.trend_status }}</p>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                                <div class="row align-items-end justify-content-between mt-3">
+                                                        <div class="chart-container" style="height:240px;">
+                                                            <canvas id="{{ result.ticker }}Chart"></canvas>
+                                                    </div> <!-- end col -->
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div> <!-- end row -->
+                        </div> <!-- end row -->
                     </div>
-                    {% endfor %}
-                {% endfor %}
+                    <!-- container -->
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="page-title-box">
+                                <h4 class="page-title">My Watchlist</h4>
+                            </div>
+                        </div>
+                    </div>
+                                            <div class="row">
+                                                    <div class="row">
+                                                        {% for action in ['Buy', 'Get Ready', 'Next Time', 'Stay Away', 'Non relevant'] %}
+                                                        {% for result in results.watch_list if result.action == action %}
+                                                        <div class="col-md-4 col-sm-6 mb-4">
+                                                            <div class="card 
+                                                            {% if result.action == 'Sell' %} bg-light-red 
+                                                            {% elif result.action == 'Buy' %} bg-light-green 
+                                                            {% elif result.action == 'Get Ready' %} bg-light-orange 
+                                                            {% elif result.action == 'Next Time' %} bg-light-pink 
+                                                            {% endif %}">
+                                                                <div class="card-body">
+                                                                    <div class="dropdown float-end">
+                                                                        <a href="#" class="dropdown-toggle arrow-none card-drop" data-bs-toggle="dropdown" aria-expanded="false">
+                                                                            <i class="mdi mdi-dots-horizontal"></i>
+                                                                        </a>
+                                                                        <div class="dropdown-menu dropdown-menu-end">
+                                                                            <!-- item-->
+                                                                            <a href="javascript:void(0);" class="dropdown-item"><i class="mdi mdi-cached me-1"></i>Refresh</a>
+                                                                            <!-- item-->
+                                                                            <a href="javascript:void(0);" class="dropdown-item"><i class="mdi mdi-circle-edit-outline me-1"></i>Edit</a>
+                                                                            <!-- item-->
+                                                                            <a href="javascript:void(0);" class="dropdown-item text-danger"><i class="mdi mdi-delete-outline me-1"></i>Remove</a>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="d-flex">
+                                                                        <div class="flex-shrink-0">
+                                                                            <div class="avatar-sm rounded">
+                                                                                <span class="avatar-title bg-primary-lighten h3 my-0 text-primary rounded">
+                                                                                    <i class="mdi mdi-currency-usd"></i>
+                                                                                </span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="flex-grow-1 ms-3">
+                                                                            <h4 class="mt-0 mb-1 font-20"><a href="{{ result.external_link }}" target="_blank">{{ result.ticker }}</a></h4>
+                                                                            <p class="mb-0 text-muted"><i id="arrow-{{ result.ticker }}" class="mdi mdi-arrow-up-bold text-success"></i><span id="price-{{ result.ticker }}">{{ result.current_price }}</span></p>
+                                                                            <p class="card-text">Average Price: {{ result.average_price }}</p>
+                                                                            <p class="card-text">Percentage Difference: {{ result.percentage_diff }}</p>
+                                                                            {% if result.trend_status %}
+                                                                            <p class="card-text">Trend Status: {{ result.trend_status }}</p>
+                                                                            {% endif %}
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="row align-items-end justify-content-between mt-3">
+                                                                            <div class="chart-container" style="height:240px;">
+                                                                                <canvas id="{{ result.ticker }}WatchListChart"></canvas>
+                                                                        </div> <!-- end col -->
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        {% endfor %}
+                                                        {% endfor %}
+                                                    </div> <!-- end row -->
+                                            </div> <!-- end row -->x
             </div>
-        </section>
-    </div>
-
-    <!-- Modal Structure -->
-    <div id="myModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal()">&times;</span>
-            <img id="modalImage" src="" alt="Chart" class="img-fluid">
         </div>
-    </div>
 
-    <!-- JavaScript -->
-    <script>
-        function openModal(imageSrc) {
-            document.getElementById('modalImage').src = imageSrc;
-            document.getElementById('myModal').style.display = "block";
-        }
+        <div class="rightbar-overlay"></div>
+        <!-- /End-bar -->
 
-        function closeModal() {
-            document.getElementById('myModal').style.display = "none";
-        }
+        <!-- bundle -->
+        <script src="{{ url_for('static', filename='/js/vendor.min.js')}}"></script>
+        <script src="{{ url_for('static', filename='/js/app.min.js')}}"></script>
 
-        // Close the modal if the user clicks outside of it
-        window.onclick = function(event) {
-            if (event.target == document.getElementById('myModal')) {
-                closeModal();
-            }
-        }
+        <!-- third party js -->
+        <script src="{{ url_for('static', filename='/js/vendor/jquery-jvectormap-1.2.2.min.js')}}"></script>
+        <script src="{{ url_for('static', filename='/js/vendor/jquery-jvectormap-world-mill-en.js')}}"></script>
+        <!-- third party js ends -->
 
-        // Close alert dynamically
-        document.addEventListener("DOMContentLoaded", function () {
-            const alertCloseButtons = document.querySelectorAll(".alert .btn-close");
-            alertCloseButtons.forEach(button => {
-                button.addEventListener("click", function () {
-                    this.closest(".alert").remove();
-                });
-            });
-
-            // Auto-close alert after a timeout (30 seconds)
-            setTimeout(() => {
-                const alert = document.getElementById("alert");
-                if (alert) {
-                    alert.style.opacity = "0"; // Fade out
-                    setTimeout(() => alert.remove(), 1000); // Remove after fade out
-                }
-            }, 30000); // 30 seconds
-        });
-
-        let marketCheckInterval;
-        let marketReopenTimeout;
-
-        // Function to fetch the latest stock prices
-    async function fetchLatestPrices() {
-        try {
-            const response = await fetch('/latest_prices');
-            const data = await response.json();
-            const marketClosedNotice = document.getElementById('market-closed-notice');
-            if (data.market_status === 'closed') {
-                marketClosedNotice.style.display = 'block';
-                marketClosedNotice.style.opacity = '1';
-                marketClosedNotice.innerText = `The market is currently closed. Prices will not be updated until ${data.next_open}.`;
-                clearInterval(marketCheckInterval);
-                const nextOpenTime = new Date(data.next_open).getTime();
-                const currentTime = new Date().getTime();
-                const timeUntilOpen = nextOpenTime - currentTime;
-                console.log(`market closed time untill open: ${timeUntilOpen}`);
-                marketReopenTimeout = setTimeout(() => {
-                console.log("Setting interval for market check after reopening.");
-                marketCheckInterval = setInterval(fetchLatestPrices, 7000);
-                fetchLatestPrices();  // Immediate fetch when market opens
-            }, timeUntilOpen);
-            }else{
-                marketClosedNotice.style.display = 'none';
-                marketClosedNotice.style.opacity = '0';
-                updatePricesAndCharts(data);
-            }
-        } catch (error) {
-            console.error('Error fetching latest prices:', error);
-        }
-    }
-    fetchLatestPrices();
-    marketCheckInterval = setInterval(fetchLatestPrices, 7000);
-
-    // Function to update prices and charts on the page
-    function updatePricesAndCharts(data) {
-        Object.keys(data).forEach(ticker => {
-            const priceElement = document.getElementById(`price-${ticker}`);
-            const currentPrice = parseFloat(priceElement.innerText.replace('$', ''));
-            const newPrice = parseFloat(data[ticker].current_price);
-
-            if (newPrice.toFixed(2) !== currentPrice.toFixed(2)) {
-                priceElement.innerText = `$${newPrice.toFixed(2)}`;
-                priceElement.classList.add(newPrice > currentPrice ? 'highlight-green' : 'highlight-red');
-                
-                // Use a separate timeout for fade-out
-                setTimeout(() => {
-                    priceElement.classList.remove(newPrice > currentPrice ? 'highlight-green' : 'highlight-red');
-                    priceElement.classList.add('fade-out');
-                }, 1000);  // Delay before fading out
-
-                setTimeout(() => {
-                    priceElement.classList.remove('fade-out');
-                }, 3000);  // Total duration for transition and fade-out
-            }
-            function findChartByTicker(charts, ticker) {
-                for (let key in charts) {
-                    if (key.startsWith(`${ticker}`))
-                    {
-                    return charts[key]; 
+        <!-- demo app -->
+        <script src="{{ url_for('static', filename='/js/pages/demo.dashboard.js')}}"></script>
+        <!-- end demo js-->
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                console.log("Script has started");
+        
+                function updatePriceArrow(ticker, currentPrice, averagePrice) {
+                    console.log(`Updating arrow for ticker: ${ticker}`);
+        
+                    var arrowElement = document.getElementById('arrow-' + ticker);
+        
+                    if (!arrowElement) {
+                        return;
+                    }
+        
+                    if (isNaN(currentPrice)) {
+                        return;
+                    }
+        
+                    if (isNaN(averagePrice)) {
+                        return;
+                    }
+        
+                    if (currentPrice > averagePrice) {
+                        arrowElement.classList.remove('mdi-arrow-down-bold', 'text-danger');
+                        arrowElement.classList.add('mdi-arrow-up-bold', 'text-success');
+                    } else {
+                        arrowElement.classList.remove('mdi-arrow-up-bold', 'text-success');
+                        arrowElement.classList.add('mdi-arrow-down-bold', 'text-danger');
                     }
                 }
-                return null;
+        
+                console.log("Iterating through sorted_portfolio");
+                {% for result in sorted_portfolio %}
+                    var ticker = '{{ result.ticker }}';
+                    var priceElement = document.getElementById('price-' + ticker);
+                    if (!priceElement) {
+                    } else {
+                        var rawCurrentPrice = priceElement.innerText;
+                        var currentPrice = parseFloat(rawCurrentPrice.replace('$', ''));
+                        var rawAveragePrice = '{{ result.average_price }}';
+                        var averagePrice = parseFloat(rawAveragePrice.replace('$', ''));
+                        updatePriceArrow(ticker, currentPrice, averagePrice);
+                    }
+                {% endfor %}
+        
+                console.log("Iterating through watch_list");
+                {% for result in results.watch_list %}
+                    var ticker = '{{ result.ticker }}';
+                    var priceElement = document.getElementById('price-' + ticker);
+                    if (!priceElement) {
+                    } else {
+                        var rawCurrentPrice = priceElement.innerText;
+                        var currentPrice = parseFloat(rawCurrentPrice.replace('$', ''));
+                        var rawAveragePrice = '{{ result.average_price }}';
+                        var averagePrice = parseFloat(rawAveragePrice.replace('$', ''));
+                        updatePriceArrow(ticker, currentPrice, averagePrice);
+                    }
+                {% endfor %}
+            });
+        </script>
+        
+        
+        
+        
+        
+        <script>
+            function openModal(imageSrc) {
+                document.getElementById('modalImage').src = imageSrc;
+                document.getElementById('myModal').style.display = "block";
             }
-            const chart = findChartByTicker(charts, ticker);
-            if (chart) {
-                const labels = chart.data.labels;
-                const data = chart.data.datasets[0].data;
-                const today = new Date().toISOString().split('T')[0];
-                const dateIndex = labels.indexOf(today);
-
-                if (dateIndex !== -1) {
-                    data[dateIndex] = newPrice.toFixed(2);
-                } else {
-                    labels.push(today);
-                    data.push(newPrice.toFixed(2));
+    
+            function closeModal() {
+                document.getElementById('myModal').style.display = "none";
+            }
+    
+            // Close the modal if the user clicks outside of it
+            window.onclick = function(event) {
+                if (event.target == document.getElementById('myModal')) {
+                    closeModal();
                 }
-
-                chart.update();
-            }   
-        });
-    }
-
-
-        // Store existing chart instances
-        const charts = {};
-
-        function createChart(chartId, labels, closePrices, movingAverages) {
-            const ctx = document.getElementById(chartId).getContext('2d');
-
-            // Destroy existing chart if it exists
-            if (charts[chartId]) {
-                charts[chartId].destroy();
             }
-
-            const chartData = {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [
+    
+            // Close alert dynamically
+            document.addEventListener("DOMContentLoaded", function () {
+                const alertCloseButtons = document.querySelectorAll(".alert .btn-close");
+                alertCloseButtons.forEach(button => {
+                    button.addEventListener("click", function () {
+                        this.closest(".alert").remove();
+                    });
+                });
+    
+                // Auto-close alert after a timeout (30 seconds)
+                setTimeout(() => {
+                    const alert = document.getElementById("alert");
+                    if (alert) {
+                        alert.style.opacity = "0"; // Fade out
+                        setTimeout(() => alert.remove(), 1000); // Remove after fade out
+                    }
+                }, 30000); // 30 seconds
+            });
+    
+            let marketCheckInterval;
+            let marketReopenTimeout;
+    
+            // Function to fetch the latest stock prices
+        async function fetchLatestPrices() {
+            try {
+                const response = await fetch('/latest_prices');
+                const data = await response.json();
+                const marketClosedNotice = document.getElementById('market-closed-notice');
+                if (data.market_status === 'closed') {
+                    marketClosedNotice.style.display = 'block';
+                    marketClosedNotice.style.opacity = '1';
+                    marketClosedNotice.innerText = `The market is currently closed. Prices will not be updated until ${data.next_open}.`;
+                    clearInterval(marketCheckInterval);
+                    const nextOpenTime = new Date(data.next_open).getTime();
+                    const currentTime = new Date().getTime();
+                    const timeUntilOpen = nextOpenTime - currentTime;
+                    console.log(`market closed time untill open: ${timeUntilOpen}`);
+                    marketReopenTimeout = setTimeout(() => {
+                    console.log("Setting interval for market check after reopening.");
+                    marketCheckInterval = setInterval(fetchLatestPrices, 7000);
+                    fetchLatestPrices();  // Immediate fetch when market opens
+                }, timeUntilOpen);
+                }else{
+                    marketClosedNotice.style.display = 'none';
+                    marketClosedNotice.style.opacity = '0';
+                    updatePricesAndCharts(data);
+                }
+            } catch (error) {
+                console.error('Error fetching latest prices:', error);
+            }
+        }
+        fetchLatestPrices();
+        marketCheckInterval = setInterval(fetchLatestPrices, 7000);
+    
+        // Function to update prices and charts on the page
+        function updatePricesAndCharts(data) {
+            Object.keys(data).forEach(ticker => {
+                const priceElement = document.getElementById(`price-${ticker}`);
+                const currentPrice = parseFloat(priceElement.innerText.replace('$', ''));
+                const newPrice = parseFloat(data[ticker].current_price);
+    
+                if (newPrice.toFixed(2) !== currentPrice.toFixed(2)) {
+                    priceElement.innerText = `$${newPrice.toFixed(2)}`;
+                    priceElement.classList.add(newPrice > currentPrice ? 'highlight-green' : 'highlight-red');
+                    
+                    // Use a separate timeout for fade-out
+                    setTimeout(() => {
+                        priceElement.classList.remove(newPrice > currentPrice ? 'highlight-green' : 'highlight-red');
+                        priceElement.classList.add('fade-out');
+                    }, 1000);  // Delay before fading out
+    
+                    setTimeout(() => {
+                        priceElement.classList.remove('fade-out');
+                    }, 3000);  // Total duration for transition and fade-out
+                }
+                function findChartByTicker(charts, ticker) {
+                    for (let key in charts) {
+                        if (key.startsWith(`${ticker}`))
                         {
-                            label: chartId + ' Close Prices',
-                            data: closePrices,
-                            borderColor: 'rgba(75, 192, 192, 1)',
-                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                            fill: false,
-                        },
-                        {
-                            label: chartId + ' Moving Average',
-                            data: movingAverages,
-                            borderColor: 'rgba(255, 159, 64, 1)',
-                            backgroundColor: 'rgba(255, 159, 64, 0.2)',
-                            fill: false,
+                        return charts[key]; 
                         }
-                    ]
-                },
-                options: {
-                    plugins:{
-   legend: {
-    display: false
-   }
-  },
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: { beginAtZero: false }
+                    }
+                    return null;
+                }
+                const chart = findChartByTicker(charts, ticker);
+                if (chart) {
+                    const labels = chart.data.labels;
+                    const data = chart.data.datasets[0].data;
+                    const today = new Date().toISOString().split('T')[0];
+                    const dateIndex = labels.indexOf(today);
+    
+                    if (dateIndex !== -1) {
+                        data[dateIndex] = newPrice.toFixed(2);
+                    } else {
+                        labels.push(today);
+                        data.push(newPrice.toFixed(2));
+                    }
+    
+                    chart.update();
+                }   
+            });
+        }
+    
+    
+            // Store existing chart instances
+            const charts = {};
+    
+            function createChart(chartId, labels, closePrices, movingAverages) {
+                const ctx = document.getElementById(chartId).getContext('2d');
+    
+                // Destroy existing chart if it exists
+                if (charts[chartId]) {
+                    charts[chartId].destroy();
+                }
+    
+                const chartData = {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: chartId + ' Close Prices',
+                                data: closePrices,
+                                borderColor: 'rgba(114,124,245, 1)',
+                                backgroundColor: 'rgba(114,124,245, 0.2)',
+                                fill: false,
+                            },
+                            {
+                                label: chartId + ' Moving Average',
+                                data: movingAverages,
+                                borderColor: 'rgba(10,207,151, 1)',
+                                backgroundColor: 'rgba(10,207,151, 0.2)',
+                                fill: false,
+                            }
+                        ]
                     },
-                    tooltips: {
-                        callbacks: {
-                            label: function(tooltipItem) {
-                                return tooltipItem.yLabel;
+                    options: {
+                        plugins:{
+       legend: {
+        display: false
+       }
+      },
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: { beginAtZero: false }
+                        },
+                        tooltips: {
+                            callbacks: {
+                                label: function(tooltipItem) {
+                                    return tooltipItem.yLabel;
+                                }
                             }
                         }
                     }
-                }
-            };
+                };
+    
+                charts[chartId] = new Chart(ctx, chartData);
+            }
+    
+            // Initialize charts for portfolio and watchlist
+            function initializeCharts(results, suffix) {
+                results.forEach(result => {
+                    createChart(
+                        `${result.ticker}${suffix}Chart`,
+                        result.dates,
+                        result.last_50_closes,
+                        result.last_50_ma
+                    );
+                });
+            }
+    
+            // Call the function for portfolio and watchlist
+            initializeCharts({{ results.portfolio | tojson }}, '');
+            initializeCharts({{ results.watch_list | tojson }}, 'WatchList');
+        </script>
+    </body>
 
-            charts[chartId] = new Chart(ctx, chartData);
-        }
-
-        // Initialize charts for portfolio and watchlist
-        function initializeCharts(results, suffix) {
-            results.forEach(result => {
-                createChart(
-                    `${result.ticker}${suffix}Chart`,
-                    result.dates,
-                    result.last_50_closes,
-                    result.last_50_ma
-                );
-            });
-        }
-
-        // Call the function for portfolio and watchlist
-        initializeCharts({{ results.portfolio | tojson }}, '');
-        initializeCharts({{ results.watch_list | tojson }}, 'WatchList');
-    </script>
-</body>
+<!-- Mirrored from coderthemes.com/hyper/saas/index.html by HTTrack Website Copier/3.x [XR&CO'2014], Fri, 29 Jul 2022 10:20:07 GMT -->
 </html>

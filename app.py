@@ -375,9 +375,13 @@ def stock_performance(user_id):
             '6months': 180,
             '1year': 365,
             '3years': 1095,
-            'alltime': 10000  # Arbitrary large number for all time
+            'alltime': 10000,  # Arbitrary large number for all time
         }
-        days = period_mapping.get(period, 10000)
+
+        if period in ['from_beginning', 'since_bought']:
+            days = 0
+        else:
+            days = period_mapping.get(period, 10000)
 
         user_data = user_data_utils.load_user_data(user_id)
         if not user_data or user_id not in user_data:
@@ -398,27 +402,36 @@ def stock_performance(user_id):
         # Calculate performance and prepare the JSON response
         performance_data = {}
         for ticker in tickers:
-            if ticker in stock_data:
-                # Get the date 5 days ago
-                dates = sorted(stock_data[ticker].keys())
-                date_5_days_ago = dates[-days] if len(dates) >= days else dates[0]
-                old_price = stock_data[ticker][date_5_days_ago]
-                new_price = current_prices.get(ticker, 0)
-                percentage_change = ((new_price - old_price) / old_price) * 100 if old_price else 0
+            purchase_data = heatmap_data.get(ticker, [{}])[0]
 
-                weight_data = heatmap_data.get(ticker, [{}])[0].get('weight', 0)
+            if period in ['from_beginning', 'since_bought']:
+                old_price = purchase_data.get('purchase_price', 0)
+            else:
+                if ticker in stock_data:
+                    dates = sorted(stock_data[ticker].keys())
+                    date_days_ago = dates[-days] if len(dates) >= days else dates[0]
+                    old_price = stock_data[ticker][date_days_ago]
+                else:
+                    old_price = 0
+            
+            new_price = current_prices.get(ticker, 0)
+            percentage_change = ((new_price - old_price) / old_price) * 100 if old_price else 0
 
-                performance_data[ticker] = {
-                    'percentage_change': percentage_change,
-                    'weight': weight_data
-                }
+            weight_data = purchase_data.get('weight', 0)
+            percentage_diff = purchase_data.get('percentage_diff', 0)
+
+            performance_data[ticker] = {
+                'percentage_change': percentage_change,
+                'weight': weight_data,
+                'percentage_diff': percentage_diff
+            }
 
         return json.dumps(performance_data)
     except Exception as e:
         print(f"DEBUG: Error fetching stock performance data: {e}")
         return json.dumps({'error': str(e)}), 500
 
-import json
+
 
 def load_heatmap_data(user_id):
     try:
