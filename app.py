@@ -12,11 +12,22 @@ app.secret_key = 'your_secret_key_here'  # Required for flash messages
 
 @app.route('/')
 def home():
-    return render_template('index.html', default_tickers='', default_watch_list='')
+    user_id = session.get('user_id')
+    if(user_id is not None):
+        return redirect(url_for('results'))
+    else:
+        return render_template('index.html', default_tickers='', default_watch_list='')
+
+@app.route('/logout')
+def logout():
+    session.pop('user_id', None)
+    return redirect(url_for('home'))
+
 
 @app.route('/results', methods=['GET', 'POST'])
 def results():
     try:
+        user_id = session.get('user_id')
         if request.method == 'POST':
             # Extract user input from the form
             user_id = request.form.get('user_id')
@@ -46,13 +57,33 @@ def results():
             user_data["results"] = results
             return render_template('results.html', results=results, missing_tickers=results["missing"], user_id=user_id)
 
-        elif request.method == 'GET':
-            results = user_data.get('results', None)
-            if not results:
-                print("No results available. Please submit your data first.", "warning")
-                return redirect(url_for('home'))
+        if request.method == 'GET' and user_id is not None:
+            
+            user_id = session['user_id']
+            user_data = user_data_utils.load_user_data(user_id)
+            tickers = [ticker.strip() for ticker in user_data[user_id].get('default_tickers', '').split(',')]
+            watch_list = [ticker.strip() for ticker in user_data[user_id].get('default_watch_list', '').split(',')]
+            tickers = list(set(tickers))  # Remove duplicates
+            watch_list = list(set(watch_list))  # Remove duplicates
+            period = 150
+            watch_list_trend_days = 30
+            tickers_data = stock_utils.fetch_and_store_stock_data(tickers + watch_list, period + 150)
+            results = {"portfolio": [], "watch_list": [], "missing": []}
 
-            return render_template('results.html', results=results, missing_tickers=results.get("missing", []), user_id=user_id)
+            # Process portfolio tickers
+            for ticker in tickers:
+                process_ticker(ticker, tickers_data, results["portfolio"], missing_list=results["missing"])
+
+            # Process watch list tickers
+            for ticker in watch_list:
+                process_ticker(ticker, tickers_data, results["watch_list"], watch_list_trend_days, period, missing_list=results["missing"])
+
+            user_data["results"] = results
+            return render_template('results.html', results=results, missing_tickers=results["missing"], user_id=user_id)
+
+        else:
+            print(user_id)
+            return redirect(url_for('home'))
 
     except Exception as e:
         print(f"DEBUG: Error processing request: {e}")
