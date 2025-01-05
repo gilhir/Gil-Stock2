@@ -126,7 +126,7 @@
                                                 <div class="card shadow-none m-0 border-start">
                                                     <div class="card-body text-center">
                                                         <i class="dripicons-user-group text-muted" style="font-size: 24px;"></i>
-                                                        <h3><span id="portfolio-today">0</span>%</h3>
+                                                        <h3><span id="portfolio-today">0</span>%<i class="mdi"></i></h3>
                                                         <p class="text-muted font-15 mb-0">Portfolio Today(%)</p>
                                                     </div>
                                                 </div>
@@ -288,50 +288,7 @@
         <!-- end demo js-->
         <script src="https://d3js.org/d3.v6.min.js"></script>
         <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                // Function to update the arrow based on the value
-                function updateArrow(elementId, arrowElement, isPercentage = false) {
-                    var value = parseFloat(document.getElementById(elementId).innerText);
-                    var arrow = document.querySelector(arrowElement);
-        
-                    if (value > 0) {
-                        arrow.classList.remove('mdi-arrow-down', 'text-danger');
-                        arrow.classList.add('mdi-arrow-up', 'text-success');
-                    } else {
-                        arrow.classList.remove('mdi-arrow-up', 'text-success');
-                        arrow.classList.add('mdi-arrow-down', 'text-danger');
-                    }
-                }
-        
-                // Fetch stock performance data and update arrows after fetching
-                fetchStockPerformance('since_bought')
-                function fetchStockPerformance(period) {
-                    const userId = {{ user_id | tojson }};
-                    fetch(`/stock_performance/${userId}?period=${period}`)
-                        .then(response => response.json())
-                        .then(data => {
-                            console.log(data); // Log the data for debugging
-                            updateVisualization(data);
-                            loadHeatmap(userId);
-                            // Update arrows based on fetched data
-                            updateArrow('portfolio-beginning', '#portfolio-beginning + i');
-                            var totalInvested = parseFloat(document.getElementById('total-invested').innerText);
-                            var totalEarned = parseFloat(document.getElementById('total-earned').innerText);
-                            var currentArrow = document.querySelector('#total-earned + i');
-        
-                            if (totalEarned > totalInvested) {
-                                currentArrow.classList.remove('mdi-arrow-down', 'text-danger');
-                                currentArrow.classList.add('mdi-arrow-up', 'text-success');
-                            } else {
-                                currentArrow.classList.remove('mdi-arrow-up', 'text-success');
-                                currentArrow.classList.add('mdi-arrow-down', 'text-danger');
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error fetching stock performance data:', error);
-                        });
-                }
-            });
+
         </script>
         
         
@@ -344,9 +301,10 @@
                 fetch(`/stock_performance/${userId}?period=${period}`)
                     .then(response => response.json())
                     .then(data => {
-                        console.log(data); // Log the data for debugging
                         updateVisualization(data);
                         loadHeatmap(userId);
+                        // Update arrows based on fetched data
+                        
                     })
                     .catch(error => {
                         console.error('Error fetching stock performance data:', error);

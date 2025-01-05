@@ -399,7 +399,7 @@ def stock_performance(user_id):
     try:
         period = request.args.get('period')
         period_mapping = {
-            '1day': 1,
+            '1day': 2,
             '5days': 5,
             '1month': 30,
             '3months': 90,
@@ -413,18 +413,15 @@ def stock_performance(user_id):
             days = 0
         else:
             days = period_mapping.get(period, 10000)
-
+            
+        print(days)
         user_data = user_data_utils.load_user_data(user_id)
         if not user_data or user_id not in user_data:
             return json.dumps({'error': 'User ID not found'}), 404
 
         tickers = user_data[user_id].get("default_tickers", "").split(",")
         tickers = [ticker.strip() for ticker in tickers if ticker.strip()]
-
-        # Fetch stock data for the specified period
         stock_data = stock_utils.fetch_and_store_stock_data(tickers, days)
-
-        # Fetch today's price using get_current_price function
         current_prices = {ticker: stock_utils.get_current_price(ticker) for ticker in tickers}
 
         # Load weight data from heatmap data

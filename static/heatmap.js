@@ -89,23 +89,32 @@ function updateVisualization(stockData) {
     document.getElementById("legend-max").innerText = `${maxPercentageChange.toFixed(2)}%`;
 }
 
-function loadHeatmap(userId) {
-    fetch(`/heatmap_data/${userId}`)
-        .then(response => response.json())
-        .then(data => {
-            updateWidgets(data);
-        })
-        .catch(error => {
-            console.error('Error loading heatmap data:', error);
-        });
-}
+async function loadHeatmap(userId) {
+    try {
+      const heatmapDataResponse = await fetch(`/heatmap_data/${userId}`);
+      const heatmapData = await heatmapDataResponse.json();
+      const dailyPerformanceResponse = await fetch(`/stock_performance/${userId}?period=1day`);
+      const dailyPerformance = await dailyPerformanceResponse.json();  
+      updateWidgets(heatmapData, dailyPerformance); 
+  
+    } catch (error) {
+      console.error('Error loading heatmap data:', error);
+    }
+  }
 
-function updateWidgets(stockData, dailyPerformance) {
+function updateWidgets(stockData,dailyPerformance) {
     let totalInvested = 0;
     let totalEarned = 0;
     let initialPortfolioValue = 0;
     let currentPortfolioValue = 0;
-
+    let dailychange = 0;
+    
+    Object.keys(dailyPerformance).forEach(tick => {
+        const ent = dailyPerformance[tick];
+        const dailypercentage = ent.percentage_change * ent.weight;
+        dailychange += dailypercentage;
+    });
+    
     Object.keys(stockData).forEach(ticker => {
         const entry = stockData[ticker][0];
 
@@ -121,26 +130,44 @@ function updateWidgets(stockData, dailyPerformance) {
 
     const portfolioFromBeginning = totalInvested > 0 ? ((totalEarned - totalInvested) / totalInvested) * 100 : 0;
 
-    const portfolioToday = dailyPerformance ? dailyPerformance.portfolio_change_percentage : 0;
+    const portfolioToday = dailychange ? dailychange : 0;
 
     document.getElementById("total-invested").innerText = totalInvested.toFixed(2);
     document.getElementById("total-earned").innerText = totalEarned.toFixed(2);
     document.getElementById("portfolio-today").innerText = portfolioToday.toFixed(2);
     document.getElementById("portfolio-beginning").innerText = portfolioFromBeginning.toFixed(2);
+    updateArrow('portfolio-beginning', '#portfolio-beginning + i');
+    updateArrow('portfolio-today', '#portfolio-today + i');
 }
 
-fetchStockPerformanceDay('1day', (dailyPerformance) => {
-    loadHeatmap(userId);
-    updateWidgets(stockData, dailyPerformance);
-});
-
-function fetchStockPerformanceDay(period, callback) {
+function fetchStockPerformanceDay(period) {
     fetch(`/stock_performance/${userId}?period=${period}`)
         .then(response => response.json())
         .then(data => {
-            callback(data);
+            return(data);
         })
         .catch(error => {
             console.error('Error fetching stock performance data:', error);
         });
+}
+function updateArrow(elementId, arrowElement, isPercentage = false) {
+    var value = parseFloat(document.getElementById(elementId).innerText);
+    var arrow = document.querySelector(arrowElement);
+    if (value > 0) {
+        arrow.classList.remove('mdi-arrow-down', 'text-danger');
+        arrow.classList.add('mdi-arrow-up', 'text-success');
+    } else {
+        arrow.classList.remove('mdi-arrow-up', 'text-success');
+        arrow.classList.add('mdi-arrow-down', 'text-danger');
+    }
+    var totalInvested = parseFloat(document.getElementById('total-invested').innerText);
+    var totalEarned = parseFloat(document.getElementById('total-earned').innerText);
+    var currentArrow = document.querySelector('#total-earned + i');
+        if (totalEarned > totalInvested) {
+            currentArrow.classList.remove('mdi-arrow-down', 'text-danger');
+            currentArrow.classList.add('mdi-arrow-up', 'text-success');
+        } else {
+            currentArrow.classList.remove('mdi-arrow-up', 'text-success');
+            currentArrow.classList.add('mdi-arrow-down', 'text-danger');
+        }
 }
