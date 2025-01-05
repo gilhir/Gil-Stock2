@@ -73,6 +73,7 @@
     </head>
 
     <body class="loading" data-layout-color="light" data-leftbar-theme="dark" data-layout-mode="fluid" data-rightbar-onstart="true">
+        <div class="wrapper">
         <!-- Begin page -->
             <!-- ========== Left Sidebar Start ========== -->
             <div id="leftside-menu" class="leftside-menu"></div>
@@ -167,18 +168,14 @@
                                 </div>
                             </div>
                         </div>
-                                    </div>
-                                </div> <!-- end card-box-->
-                            </div> <!-- end col-->
                         </div>
-                    </div>
+                        </div>
+                        </div>
                 <!-- content -->
             <!-- ============================================================== -->
             <!-- End Page content -->
             <!-- ============================================================== -->
 
-
-        </div>
         <!-- END wrapper -->
 
         <!-- Right Sidebar -->
@@ -273,7 +270,7 @@
 
         <div class="rightbar-overlay"></div>
         <!-- /End-bar -->
-
+</div>
         <!-- bundle -->
         <script src="{{ url_for('static', filename='/js/vendor.min.js')}}"></script>
         <script src="{{ url_for('static', filename='/js/app.min.js')}}"></script>
