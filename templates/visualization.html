@@ -108,6 +108,7 @@
                                                     <div class="card-body text-center">
                                                         <i class="dripicons-briefcase text-muted" style="font-size: 24px;"></i>
                                                         <h3>$<span id="total-invested">0</span></h3>
+                                                        <p class="text-muted font-15 mb-0">₪<span id="total-invested-ILS"></span></p>
                                                         <p class="text-muted font-15 mb-0">Total Money Invested</p>
                                                     </div>
                                                 </div>
@@ -118,6 +119,7 @@
                                                     <div class="card-body text-center">
                                                         <i class="dripicons-checklist text-muted" style="font-size: 24px;"></i>
                                                         <h3>$<span id="total-earned">0</span> <i class="mdi"></i></h3>
+                                                        <p class="text-muted font-15 mb-0">₪<span id="total-earned-ILS"></span></p>
                                                         <p class="text-muted font-15 mb-0">Current Portfolio</p>
                                                     </div>
                                                 </div>
@@ -162,6 +164,13 @@
                                                 <div class="legend-item" style="background-color: rgb(66, 189, 127);"></div>
                                                 <div class="legend-item" style="background-color: rgb(8, 153, 80);"></div>
                                                 <div class="legend-item" id="legend-max" style="background-color: darkgreen;"></div>
+                                            </div>
+                                            <div class="toolbar">
+                                                <button id="one_month" onclick="fetchStockPerformance('1month')" class="btn btn-sm btn-light">1M</button>
+                                                <button id="six_months" onclick="fetchStockPerformance('6months')" class="btn btn-sm btn-light">6M</button>
+                                                <button id="one_year" onclick="fetchStockPerformance('1year')" class="btn btn-sm btn-light active">1Y</button>
+                                                <button id="ytd" class="btn btn-sm btn-light">YTD</button>
+                                                <button id="all" onclick="fetchStockPerformance('since_bought')" class="btn btn-sm btn-light">ALL</button>
                                             </div>
                                         </div>
                                     </div>
@@ -309,6 +318,7 @@
             }
         </script>
         <script src="{{ url_for('static', filename='heatmap.js') }}"></script>
+        <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     </body>
 
 <!-- Mirrored from coderthemes.com/hyper/saas/index.html by HTTrack Website Copier/3.x [XR&CO'2014], Fri, 29 Jul 2022 10:20:07 GMT -->

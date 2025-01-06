@@ -1,3 +1,31 @@
+let InverseRateILS;
+async function getInverseRate() {
+    const url = 'https://www.floatrates.com/daily/ils.json';
+  
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      const data = await response.json();
+  
+      // Find the USD currency information
+      const usdInfo = data.usd;
+  
+      if (usdInfo) {
+        // Return the inverseRate
+        return usdInfo.inverseRate;
+      } else {
+        throw new Error('USD currency not found');
+      }
+    } catch (error) {
+      console.error('There was a problem with the fetch operation:', error);
+    }
+  }
+  async function inverserateget() {
+    InverseRateILS = await getInverseRate();
+  }
+  inverserateget();
 function updateVisualization(stockData) {
     d3.select("#stock-map").select("svg").remove();
 
@@ -95,6 +123,7 @@ async function loadHeatmap(userId) {
       const heatmapData = await heatmapDataResponse.json();
       const dailyPerformanceResponse = await fetch(`/stock_performance/${userId}?period=1day`);
       const dailyPerformance = await dailyPerformanceResponse.json();  
+      console.log(dailyPerformance)
       updateWidgets(heatmapData, dailyPerformance); 
   
     } catch (error) {
@@ -129,11 +158,12 @@ function updateWidgets(stockData,dailyPerformance) {
     });
 
     const portfolioFromBeginning = totalInvested > 0 ? ((totalEarned - totalInvested) / totalInvested) * 100 : 0;
-
+    
     const portfolioToday = dailychange ? dailychange : 0;
-
     document.getElementById("total-invested").innerText = totalInvested.toFixed(2);
+    document.getElementById("total-invested-ILS").innerText = (totalInvested*InverseRateILS).toFixed(2);
     document.getElementById("total-earned").innerText = totalEarned.toFixed(2);
+    document.getElementById("total-earned-ILS").innerText = (totalEarned*InverseRateILS).toFixed(2);
     document.getElementById("portfolio-today").innerText = portfolioToday.toFixed(2);
     document.getElementById("portfolio-beginning").innerText = portfolioFromBeginning.toFixed(2);
     updateArrow('portfolio-beginning', '#portfolio-beginning + i');

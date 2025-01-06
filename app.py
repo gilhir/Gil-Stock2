@@ -399,7 +399,7 @@ def stock_performance(user_id):
     try:
         period = request.args.get('period')
         period_mapping = {
-            '1day': 2,
+            '1day': 1,
             '5days': 5,
             '1month': 30,
             '3months': 90,

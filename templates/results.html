@@ -147,7 +147,7 @@
                                                     </a>
                                                     <div class="dropdown-menu dropdown-menu-end">
                                                         <!-- item-->
-                                                        <a href="javascript:void(0);" class="dropdown-item"><i class="mdi mdi-cached me-1"></i>Refresh</a>
+                                                        <a onclick="fetchLatestPrices()" class="dropdown-item"><i class="mdi mdi-cached me-1"></i>Refresh</a>
                                                         <!-- item-->
                                                         <a href="javascript:void(0);" class="dropdown-item"><i class="mdi mdi-circle-edit-outline me-1"></i>Edit</a>
                                                         <!-- item-->
@@ -210,7 +210,7 @@
                                                                         </a>
                                                                         <div class="dropdown-menu dropdown-menu-end">
                                                                             <!-- item-->
-                                                                            <a href="javascript:void(0);" class="dropdown-item"><i class="mdi mdi-cached me-1"></i>Refresh</a>
+                                                                            <a onclick="fetchLatestPrices()" class="dropdown-item"><i class="mdi mdi-cached me-1"></i>Refresh</a>
                                                                             <!-- item-->
                                                                             <a href="javascript:void(0);" class="dropdown-item"><i class="mdi mdi-circle-edit-outline me-1"></i>Edit</a>
                                                                             <!-- item-->
@@ -470,6 +470,7 @@
                     clearInterval(marketCheckInterval);
                     const nextOpenTime = new Date(data.next_open).getTime();
                     const currentTime = new Date().getTime();
+                    console.log('current time',currentTime,'nextopen',nextOpenTime)
                     const timeUntilOpen = nextOpenTime - currentTime;
                     console.log(`market closed time untill open: ${timeUntilOpen}`);
                     marketReopenTimeout = setTimeout(() => {
