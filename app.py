@@ -243,13 +243,12 @@ def user_data():
 
 @app.route('/update_server', methods=['POST'])
 def webhook():
-        if request.method == 'POST':
-            repo = git.Repo('/')
+            repo = git.Repo('./')
             origin = repo.remotes.origin
+            repo.create_head('main',origin.refs.main).set_tracking_branch(origin.refs.main).checkout()
             origin.pull()
             return 'Updated PythonAnywhere successfully', 200
-        else:
-            return 'Wrong event type', 400
+
 
 @app.route('/user_tickers/<user_id>', methods=['GET'])
 def user_tickers(user_id):
