@@ -243,7 +243,8 @@ def user_data():
 
 @app.route('/update_server', methods=['POST'])
 def webhook():
-            repo = git.Repo('./home/gilhir')
+            current_dir = os.getcwd()
+            repo = git.Repo(current_dir)
             origin = repo.remotes.origin
             repo.create_head('main',origin.refs.main).set_tracking_branch(origin.refs.main).checkout()
             origin.pull()
