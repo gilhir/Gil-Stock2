@@ -160,12 +160,13 @@ function updateWidgets(stockData,dailyPerformance) {
     const portfolioFromBeginning = totalInvested > 0 ? ((totalEarned - totalInvested) / totalInvested) * 100 : 0;
     
     const portfolioToday = dailychange ? dailychange : 0;
-    document.getElementById("total-invested").innerText = totalInvested.toFixed(2);
-    document.getElementById("total-invested-ILS").innerText = (totalInvested*InverseRateILS).toFixed(2);
-    document.getElementById("total-earned").innerText = totalEarned.toFixed(2);
-    document.getElementById("total-earned-ILS").innerText = (totalEarned*InverseRateILS).toFixed(2);
-    document.getElementById("portfolio-today").innerText = portfolioToday.toFixed(2);
-    document.getElementById("portfolio-beginning").innerText = portfolioFromBeginning.toFixed(2);
+    document.getElementById("total-invested").innerText = totalInvested.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    document.getElementById("total-invested-ILS").innerText = (totalInvested*InverseRateILS).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    document.getElementById("total-earned").innerText = totalEarned.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    document.getElementById("total-earned-ILS").innerText = (totalEarned*InverseRateILS).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    document.getElementById("portfolio-today").innerText = portfolioToday.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    document.getElementById("portfolio-today-ILS").innerText = ((portfolioToday/100)*totalEarned*InverseRateILS).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    document.getElementById("portfolio-beginning").innerText = portfolioFromBeginning.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");    
     updateArrow('portfolio-beginning', '#portfolio-beginning + i');
     updateArrow('portfolio-today', '#portfolio-today + i');
 }
