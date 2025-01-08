@@ -456,39 +456,48 @@
     
             let marketCheckInterval;
             let marketReopenTimeout;
-    
-            // Function to fetch the latest stock prices
-        async function fetchLatestPrices() {
-            try {
-                const response = await fetch('/latest_prices');
-                const data = await response.json();
-                const marketClosedNotice = document.getElementById('market-closed-notice');
-                if (data.market_status === 'closed') {
-                    marketClosedNotice.style.display = 'block';
-                    marketClosedNotice.style.opacity = '1';
-                    marketClosedNotice.innerText = `The market is currently closed. Prices will not be updated until ${data.next_open}.`;
-                    clearInterval(marketCheckInterval);
-                    const nextOpenTime = new Date(data.next_open).getTime();
-                    const currentTime = new Date().getTime();
-                    console.log('current time',currentTime,'nextopen',nextOpenTime)
-                    const timeUntilOpen = nextOpenTime - currentTime;
-                    console.log(`market closed time untill open: ${timeUntilOpen}`);
-                    marketReopenTimeout = setTimeout(() => {
-                    console.log("Setting interval for market check after reopening.");
-                    marketCheckInterval = setInterval(fetchLatestPrices, 7000);
-                    fetchLatestPrices();  // Immediate fetch when market opens
-                }, timeUntilOpen);
-                }else{
-                    marketClosedNotice.style.display = 'none';
-                    marketClosedNotice.style.opacity = '0';
-                    updatePricesAndCharts(data);
-                }
-            } catch (error) {
-                console.error('Error fetching latest prices:', error);
-            }
+            let isFetchingPrices = false; // Flag to track the request status
+
+async function fetchLatestPrices() {
+    if (isFetchingPrices) {
+        return; // If a request is already in progress, exit the function
+    }
+
+    isFetchingPrices = true; // Set the flag to true indicating a request is in progress
+    try {
+        const response = await fetch('/latest_prices');
+        const data = await response.json();
+        const marketClosedNotice = document.getElementById('market-closed-notice');
+        if (data.market_status === 'closed') {
+            marketClosedNotice.style.display = 'block';
+            marketClosedNotice.style.opacity = '1';
+            marketClosedNotice.innerText = `The market is currently closed. Prices will not be updated until ${data.next_open}.`;
+            clearInterval(marketCheckInterval);
+            const nextOpenTime = new Date(data.next_open).getTime();
+            const currentTime = new Date().getTime();
+            console.log('current time', currentTime, 'nextopen', nextOpenTime)
+            const timeUntilOpen = nextOpenTime - currentTime;
+            console.log(`market closed time untill open: ${timeUntilOpen}`);
+            marketReopenTimeout = setTimeout(() => {
+                console.log("Setting interval for market check after reopening.");
+                marketCheckInterval = setInterval(fetchLatestPrices, 7000);
+                fetchLatestPrices();  // Immediate fetch when market opens
+            }, timeUntilOpen);
+        } else {
+            marketClosedNotice.style.display = 'none';
+            marketClosedNotice.style.opacity = '0';
         }
-        fetchLatestPrices();
-        marketCheckInterval = setInterval(fetchLatestPrices, 7000);
+        updatePricesAndCharts(data.latest_prices);
+    } catch (error) {
+        console.error('Error fetching latest prices:', error);
+    } finally {
+        isFetchingPrices = false; // Reset the flag once the request is finished
+    }
+}
+
+fetchLatestPrices();
+marketCheckInterval = setInterval(fetchLatestPrices, 7000);
+
     
         // Function to update prices and charts on the page
         function updatePricesAndCharts(data) {

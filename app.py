@@ -6,6 +6,7 @@ import json
 import user_data_utils
 import git
 import datetime
+import time
 
 app = Flask(__name__, template_folder='templates')
 app.secret_key = 'your_secret_key_here'  # Required for flash messages
@@ -27,14 +28,16 @@ def logout():
 @app.route('/results', methods=['GET', 'POST'])
 def results():
     try:
+        start_time = time.time()
         user_id = session.get('user_id')
         if request.method == 'POST':
             # Extract user input from the form
             user_id = request.form.get('user_id')
             tickers = [ticker.strip() for ticker in request.form.get('tickers', '').split(',')]
             watch_list = [ticker.strip() for ticker in request.form.get('watch_list', '').split(',')]
-            tickers = list(set(tickers))  # Remove duplicates
-            watch_list = list(set(watch_list))  # Remove duplicates
+            # Example optimization for duplicate removal
+            tickers = list(dict.fromkeys(tickers))
+            watch_list = list(dict.fromkeys(watch_list))
             period = int(request.form.get('period', 150))
             watch_list_trend_days = int(request.form.get('watch_list_trend_days', 30))
             user_data = {
@@ -46,14 +49,15 @@ def results():
             tickers_data = stock_utils.fetch_and_store_stock_data(tickers + watch_list, period + 150)
             results = {"portfolio": [], "watch_list": [], "missing": []}
             
-            # Process portfolio tickers
-            for ticker in tickers:
-                process_ticker(ticker, tickers_data, results["portfolio"], missing_list=results["missing"])
-
-            # Process watch list tickers
-            for ticker in watch_list:
-                process_ticker(ticker, tickers_data, results["watch_list"], watch_list_trend_days, period, missing_list=results["missing"])
-
+            # Combining operations to minimize loops
+            for ticker in set(tickers + watch_list):
+                if ticker in tickers:
+                    process_ticker(ticker, tickers_data, results["portfolio"], missing_list=results["missing"])
+                if ticker in watch_list:
+                    process_ticker(ticker, tickers_data, results["watch_list"], watch_list_trend_days, period, missing_list=results["missing"])
+            end_time=time.time()
+            execution_time = end_time - start_time
+            print(f"Execution time: {execution_time} seconds")
             user_data["results"] = results
             return render_template('results.html', results=results, missing_tickers=results["missing"], user_id=user_id)
 
@@ -70,15 +74,16 @@ def results():
             tickers_data = stock_utils.fetch_and_store_stock_data(tickers + watch_list, period + 150)
             results = {"portfolio": [], "watch_list": [], "missing": []}
 
-            # Process portfolio tickers
-            for ticker in tickers:
-                process_ticker(ticker, tickers_data, results["portfolio"], missing_list=results["missing"])
-
-            # Process watch list tickers
-            for ticker in watch_list:
-                process_ticker(ticker, tickers_data, results["watch_list"], watch_list_trend_days, period, missing_list=results["missing"])
+            for ticker in set(tickers + watch_list):
+                if ticker in tickers:
+                    process_ticker(ticker, tickers_data, results["portfolio"], missing_list=results["missing"])
+                if ticker in watch_list:
+                    process_ticker(ticker, tickers_data, results["watch_list"], watch_list_trend_days, period, missing_list=results["missing"])
 
             user_data["results"] = results
+            end_time=time.time()
+            execution_time = end_time - start_time
+            print(f"Execution time: {execution_time} seconds")
             return render_template('results.html', results=results, missing_tickers=results["missing"], user_id=user_id)
 
         else:
@@ -168,9 +173,7 @@ def latest_prices():
             return json.dumps({'error': f"No data found for User ID '{user_id}'"}), 404
         
         current_date = datetime.datetime.now()
-        if not stock_utils.market_is_open_now(current_date):
-            next_open = stock_utils.next_market_open()
-            return json.dumps({'market_status': 'closed','next_open': next_open}), 200
+        market_open = stock_utils.market_is_open_now(current_date)
 
         # Extract tickers from default_tickers and default_watch_list
         default_tickers = user_data[user_id].get("default_tickers", "")
@@ -186,8 +189,13 @@ def latest_prices():
                     latest_prices[ticker] = {'current_price': formatted_price}
                 except ValueError:
                     print(f"Invalid price for ticker {ticker}: {current_price}")
-        return json.dumps(latest_prices)
-
+        
+        if not market_open:
+            next_open = stock_utils.next_market_open()
+            return json.dumps({'market_status': 'closed', 'next_open': next_open, 'latest_prices': latest_prices}), 200
+        else:
+            return json.dumps({'market_status': 'open', 'latest_prices': latest_prices}), 200
+        
     except Exception as e:
         print(f"DEBUG: Error fetching latest prices: {e}")
         flash(f"An error occurred while fetching prices: {e}", "danger")

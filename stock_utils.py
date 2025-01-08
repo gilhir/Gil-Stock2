@@ -49,7 +49,6 @@ def next_market_open():
 
 
 def get_current_price(ticker):
-    """Fetch the current price of a ticker. Return an empty string if unavailable."""
     try:
         ticker_yahoo = yf.Ticker(ticker)
         history = ticker_yahoo.history(period="1d")
