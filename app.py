@@ -77,7 +77,9 @@ def fetcher(period):
                 watch_list = [ticker.strip() for ticker in user_data[user_id].get('default_watch_list', '').split(',')]
                 tickers = list(set(tickers))
                 watch_list = list(set(watch_list))
-                watch_list_trend_days = 30
+                analysis_period = int(user_data_utils.get_user_analysis_period(user_data, user_id))
+                watch_list_trend_days = int(user_data_utils.get_user_watch_list_trend_days(user_data,user_id))
+                print(watch_list_trend_days)
                 tickers_data = stock_utils.fetch_and_store_stock_data(tickers + watch_list, period + 150)
                 results = {"portfolio": [], "watch_list": [], "missing": []}
 
@@ -85,7 +87,7 @@ def fetcher(period):
                     if ticker in tickers:
                         process_ticker(ticker, tickers_data, results["portfolio"], period, missing_list=results["missing"])
                     if ticker in watch_list:
-                        process_ticker(ticker, tickers_data, results["watch_list"], watch_list_trend_days, period, missing_list=results["missing"])
+                        process_ticker(ticker, tickers_data, results["watch_list"], period, watch_list_trend_days, missing_list=results["missing"])
 
                 user_data["results"] = results
                 clean_results = clean_json(results)
@@ -135,8 +137,8 @@ def process_ticker(ticker, tickers_data, result_list, period, watch_list_trend_d
         }
 
         # For watch list, check the trend status
-        if watch_list_trend_days and period:
-            trend = stock_utils.check_upward_trend(close_prices, watch_list_trend_days, period)
+        if watch_list_trend_days:
+            trend = stock_utils.check_upward_trend(close_prices, watch_list_trend_days)
             trend_status = "Upward" if trend else "Not upward"
 
             if trend_status == "Not upward":

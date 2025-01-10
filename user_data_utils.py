@@ -9,12 +9,38 @@ def load_user_data(user_id):
             try:
                 user_data = json.load(file)
                 if user_id not in user_data:
-                    user_data[user_id] = {"default_tickers": "", "default_watch_list": ""}
+                    user_data[user_id] = {
+                        "default_tickers": "", 
+                        "default_watch_list": "",
+                        "analysis_period": "",
+                        "watch_list_trend_days": ""
+                    }
             except json.decoder.JSONDecodeError as e:
-                user_data = {user_id: {"default_tickers": "", "default_watch_list": ""}}
+                user_data = {
+                    user_id: {
+                        "default_tickers": "", 
+                        "default_watch_list": "",
+                        "analysis_period": "",
+                        "watch_list_trend_days": ""
+                    }
+                }
     else:
-        user_data = {user_id: {"default_tickers": "", "default_watch_list": ""}}
+        user_data = {
+            user_id: {
+                "default_tickers": "", 
+                "default_watch_list": "",
+                "analysis_period": "",
+                "watch_list_trend_days": ""
+            }
+        }
     return user_data
+
+def get_user_analysis_period(user_data, user_id):
+    return user_data.get(user_id, {}).get("analysis_period", "")
+
+def get_user_watch_list_trend_days(user_data, user_id):
+    return user_data.get(user_id, {}).get("watch_list_trend_days", "")
+
 
 def save_user_data(user_id, data):
     try:

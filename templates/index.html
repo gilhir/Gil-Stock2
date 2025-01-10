@@ -162,27 +162,27 @@
                                                 </div>        
                                                 </div>
                                                 <div class="col-lg-6">
+                                                    <div class="form-group">
+                                                        <label for="period">Period for stock Analysis:</label>
+                                                        <div class="mb-3">
+                                                            <div class="input-box">
+                                                                <input class="form-control" id="period" type="number" name="period" value="50" required>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label for="watch_list_period">Period for watch list (days):</label>
+                                                        <div class="mb-3">
+                                                            <div class="input-box">
+                                                                <input class="form-control" id="watch_list_trend_days" type="number" name="watch_list_trend_days" value="30" required>
+                                                            </div>
+                                                        </div>
+                                                    </div>                                                
                                                 <div class="form-group">
-                                                    <label for="period">Period for stock Analysis:</label>
+                                                    <label for="nono">Trend check period (days):</label>
                                                     <div id="mb-3">
                                                         <div id="input-box">
-                                                    <input class="form-control" id="simpleinput" type="number" name="period" id="period" value="50" required>
-                                                </div>
-                                            </div>
-                                                </div>
-                                                <div class="form-group">
-                                                    <label for="watch_list_period">Period for watch list (days):</label>
-                                                    <div id="mb-3">
-                                                        <div id="input-box">
-                                                    <input class="form-control" id="simpleinput" type="number" name="watch_list_trend_days" id="watch_list_trend_days" value="150" required>
-                                                </div>
-                                                </div>
-                                                </div>
-                                                <div class="form-group">
-                                                    <label for="watch_list_trend_days">Trend check period (days):</label>
-                                                    <div id="mb-3">
-                                                        <div id="input-box">
-                                                    <input class="form-control" id="simpleinput" type="number" name="watch_list_trend_days" id="watch_list_trend_days" value="30" required>
+                                                    <input class="form-control" id="simpleinput" type="number" name="nono" id="nono" value="30" required>
                                                 </div>
                                                 </div>
                                                 </div>
@@ -442,11 +442,17 @@
                                 if (data[userId]) {
                                     const defaultTickers = data[userId]['default_tickers'] || '';
                                     const defaultWatchList = data[userId]['default_watch_list'] || '';
-    
+                                    const analysis_period = data[userId]['analysis_period'] || '';
+                                    const watch_list_trend_days = data[userId]['watch_list_trend_days'] || '';
+                                    console.log(analysis_period)
+                                    console.log(watch_list_trend_days)
                                     // Populate tickers and watchlist
                                     populateInputBoxes(defaultTickers, 'tickers-container', 'tickers-input', 'tickers');
                                     populateInputBoxes(defaultWatchList, 'watch-list-container', 'watch-list-input', 'watch_list');
+                                    document.getElementById("period").value = analysis_period;
+                                    document.getElementById("watch_list_trend_days").value = watch_list_trend_days;
                                 }
+
                             })
                             .catch(error => console.error('Error:', error));
                     }
