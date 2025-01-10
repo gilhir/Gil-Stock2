@@ -442,8 +442,8 @@
                                 if (data[userId]) {
                                     const defaultTickers = data[userId]['default_tickers'] || '';
                                     const defaultWatchList = data[userId]['default_watch_list'] || '';
-                                    const analysis_period = data[userId]['analysis_period'] || '';
-                                    const watch_list_trend_days = data[userId]['watch_list_trend_days'] || '';
+                                    const analysis_period = data[userId]['analysis_period'] || '50';
+                                    const watch_list_trend_days = data[userId]['watch_list_trend_days'] || '30';
                                     console.log(analysis_period)
                                     console.log(watch_list_trend_days)
                                     // Populate tickers and watchlist
