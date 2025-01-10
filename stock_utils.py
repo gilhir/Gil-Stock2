@@ -174,6 +174,6 @@ def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.g
 
 
 def check_upward_trend(data, trend_days):
-    rolling_average = data.rolling(window=trend_days).mean()
+    rolling_average = data.rolling(window=150).mean()
     trend_period_data = rolling_average[-trend_days:]
     return all(x < y for x, y in zip(trend_period_data, trend_period_data[1:]))
