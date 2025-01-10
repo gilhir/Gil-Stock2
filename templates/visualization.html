@@ -226,21 +226,21 @@
                                     <div class="card-body">
                                         <ul class="nav float-end d-none d-lg-flex">
                                             <li class="nav-item">
-                                                <a class="nav-link text-muted" href="#">Today</a>
+                                                <a class="nav-link text-muted" id="link-7d" onclick="fetchProfit('7', this)">7d</a>
                                             </li>
                                             <li class="nav-item">
-                                                <a class="nav-link text-muted" href="#">7d</a>
+                                                <a class="nav-link text-muted" id="link-1m" onclick="fetchProfit('30', this)">1m</a>
                                             </li>
                                             <li class="nav-item">
-                                                <a class="nav-link active" href="#">15d</a>
+                                                <a class="nav-link text-muted" id="link-6m" onclick="fetchProfit('180', this)">6m</a>
                                             </li>
                                             <li class="nav-item">
-                                                <a class="nav-link text-muted" href="#">1m</a>
+                                                <a class="nav-link text-muted" id="link-1y" onclick="fetchProfit('365', this)">1y</a>
                                             </li>
                                             <li class="nav-item">
-                                                <a class="nav-link text-muted" href="#">1y</a>
+                                                <a class="nav-link text-muted" id="link-3y" onclick="fetchProfit('1095', this)">3y</a>
                                             </li>
-                                        </ul>
+                                        </ul>                                        
                                         <h4 class="header-title mb-3">Portfolio Performance</h4>
                                         <div dir="ltr">
                                             <div id="chart" class="apex-charts mt-3" data-colors="#0acf97"></div>
@@ -419,7 +419,7 @@ async function fetchWithRetry(url, retries = 3, delayMs = 1000) {
     }
 }
 
-            function getPreviousPrice(seriesData, ticker, date) {
+function getPreviousPrice(seriesData, ticker, date) {
     const stockData = seriesData[ticker];
     const dateIndex = stockData.findIndex(d => d.date === date);
 
@@ -438,137 +438,180 @@ async function fetchWithRetry(url, retries = 3, delayMs = 1000) {
     // Return 0 if no previous price is found, can be adjusted based on requirements
     return 0;
 }
-        async function init() {
-            const period = "150"
-            const userId = {{ user_id|tojson }};
-            const loadingElement = document.getElementById('loading');
-            try {
-                loadingElement.style.display = 'flex';
-                const [stocksData, heatmapData] = await Promise.all([
-                    await fetchWithRetry(`/fetch_stocks/${period}`),
-                    await fetchWithRetry(`/heatmap_data/${userId}`),
-                ]);
-                await fetchStockPerformance('since_bought');
-                const dates = [];
-                const seriesData = {};
 
-                // Extract dates and prices
-                stocksData.results.portfolio.forEach(stock => {
-                    const ticker = stock.ticker;
-                    seriesData[ticker] = stock.dates.map((date, index) => ({
-                        date,
-                        price: stock.last_50_closes[index]
-                    }));
+let period = "150";
+let chart; // Declare the chart variable outside
 
-                    // Collect all unique dates
-                    stock.dates.forEach(date => {
-                        if (!dates.includes(date)) {
-                            dates.push(date);
+function fetchProfit(timeperiod, element) {
+    period = timeperiod;
+    setActiveLink(element);
+    init(); // Call init here
+}
+
+function fetchProfit(timeperiod, element) {
+    period = timeperiod;
+    setActiveLink(element);
+    init(); // Call init here
+}
+
+function setActiveLink(element) {
+    if (!element) return; // Check if the element is defined
+    // Remove the active class from all links
+    const links = document.querySelectorAll('.nav-link');
+    links.forEach(link => {
+        link.classList.remove('active');
+        link.classList.add('text-muted'); // Add back the text-muted class
+    });
+
+    // Add the active class to the clicked link
+    element.classList.add('active');
+    element.classList.remove('text-muted'); // Remove the text-muted class
+}
+
+
+
+async function init() {
+    const userId = {{ user_id|tojson }};
+    const loadingElement = document.getElementById('loading');
+    try {
+        loadingElement.style.display = 'flex';
+        const [stocksData, heatmapData] = await Promise.all([
+            await fetchWithRetry(`/fetch_stocks/${period}`),
+            await fetchWithRetry(`/heatmap_data/${userId}`),
+        ]);
+        if(period == 150){
+        await fetchStockPerformance('since_bought');
+        }else{
+            loadingElement.style.display = 'none';
+        }
+        const dates = [];
+        const seriesData = {};
+
+        // Extract dates and prices
+        stocksData.results.portfolio.forEach(stock => {
+            const ticker = stock.ticker;
+            seriesData[ticker] = stock.dates.map((date, index) => ({
+                date,
+                price: stock.last_50_closes[index]
+            }));
+
+            // Collect all unique dates
+            stock.dates.forEach(date => {
+                if (!dates.includes(date)) {
+                    dates.push(date);
+                }
+            });
+        });
+
+        dates.sort((a, b) => new Date(a) - new Date(b));
+
+        // Calculate total portfolio value over time
+        const portfolioValues = dates.map(date => {
+            let totalValue = 0;
+            Object.keys(seriesData).forEach(ticker => {
+                let stockData = seriesData[ticker].find(d => d.date === date);
+                if (!stockData) {
+                    stockData = { price: getPreviousPrice(seriesData, ticker, date) };
+                }
+                const stockInfo = heatmapData[ticker] ? heatmapData[ticker][0] : null;
+                if (stockInfo) {
+                    totalValue += stockInfo.number_of_stocks * stockData.price;
+                }
+            });
+            return { date, value: totalValue.toFixed(2) };
+        });
+
+        const series = [{
+            name: 'Portfolio Value',
+            data: portfolioValues.map(({ date, value }) => ({ x: date, y: value }))
+        }];
+
+        const chartElement = document.querySelector("#chart");
+        if (!chartElement) {
+            throw new Error("Chart element not found");
+        }
+
+        if (chart) {
+            chart.updateSeries(series);
+        } else {
+            const options = {
+                chart: {
+                    type: 'area',
+                    height: 350,
+                    zoom: {
+                        enabled: false
+                    },
+                    parentHeightOffset: 0,
+                    toolbar: {
+                        show: false
+                    }
+                },
+                series: series,
+                xaxis: {
+                    type: 'datetime'
+                },
+                yaxis: {
+                    title: {
+                        text: 'Portfolio Value'
+                    },
+                    labels: {
+                        formatter: function(value) {
+                            return value + 'k';
+                        },
+                        offsetX: -15
+                    }
+                },
+                grid: {
+                    padding: {
+                        left: 0,
+                        right: 0
+                    }
+                },
+                colors: ["#0acf97", "#0acf97"],
+                stroke: {
+                    curve: 'smooth',
+                    width: 4
+                },
+                fill: {
+                    type: 'gradient',
+                    gradient: {
+                        shade: 'light',
+                        type: 'vertical',
+                        shadeIntensity: 1,
+                        gradientToColors: ["#0acf97"], 
+                        inverseColors: false,
+                        opacityFrom: 0.7,
+                        opacityTo: 0.1,
+                        stops: [0, 100]
+                    }
+                },
+                tooltip: {
+                    y: {
+                        formatter: function(value) {
+                            return value;
                         }
-                    });
-                });
+                    }
+                },
+                dataLabels: {
+                    enabled: false
+                }
+            };
 
-                dates.sort((a, b) => new Date(a) - new Date(b));
-
-                // Calculate total portfolio value over time
-                const portfolioValues = dates.map(date => {
-                    let totalValue = 0;
-                    Object.keys(seriesData).forEach(ticker => {
-                        let stockData = seriesData[ticker].find(d => d.date === date);
-                        if (!stockData) {
-                            stockData = { price: getPreviousPrice(seriesData, ticker, date) };
-                        }
-                        const stockInfo = heatmapData[ticker] ? heatmapData[ticker][0] : null;
-                        if (stockInfo) {
-                            totalValue += stockInfo.number_of_stocks * stockData.price;
-                        }
-                    });
-                    return { date, value: totalValue.toFixed(2) };
-                });
-
-// Define the gradient colors
-const colors = ["#0acf97", "#0acf97"];
-
-// Create series for the portfolio performance
-const series = [{
-    name: 'Portfolio Value',
-    data: portfolioValues.map(({ date, value }) => ({ x: date, y: value }))
-}];
-
-const options = {
-    chart: {
-        type: 'area',
-        height: 350,
-        zoom: {
-            enabled: false
-        },
-        parentHeightOffset: 0,
-        toolbar: {
-            show: false
-        }
-    },
-    series: series,
-    xaxis: {
-        type: 'datetime'
-    },
-    yaxis: {
-        title: {
-            text: 'Portfolio Value'
-        },
-        labels: {
-            formatter: function(value) {
-                return value + 'k';
-            },
-            offsetX: -15
-        }
-    },
-    grid: {
-        padding: {
-            left: 0,
-            right: 0
-        }
-    },
-    colors: colors,
-    stroke: {
-        curve: 'smooth',
-        width: 4
-    },
-    fill: {
-        type: 'gradient',
-        gradient: {
-            shade: 'light',
-            type: 'vertical',
-            shadeIntensity: 1,
-            gradientToColors: ["#0acf97"], 
-            inverseColors: false,
-            opacityFrom: 0.7,
-            opacityTo: 0.1,
-            stops: [0, 100]
-        }
-    },
-    tooltip: {
-        y: {
-            formatter: function(value) {
-                return value;
-            }
-        }
-    },
-    dataLabels: {
-        enabled: false
-    }
-};
-
-const chart = new ApexCharts(document.querySelector("#chart"), options);
-chart.render();
-
-
-
-            } catch (error) {
-                console.error('There has been a problem with your fetch operation:', error);
-            } 
+            chart = new ApexCharts(chartElement, options);
+            chart.render();
         }
 
-        document.addEventListener('DOMContentLoaded', init);
+    } catch (error) {
+        console.error('There has been a problem with your fetch operation:', error);
+    } 
+}
+
+
+// Remove this line
+// document.addEventListener('DOMContentLoaded', init);
+
+fetchProfit("150"); // Example call to initialize
+
         </script>
         <script src="{{ url_for('static', filename='heatmap.js') }}"></script>
         <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
