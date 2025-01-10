@@ -334,10 +334,6 @@
         <script src="{{ url_for('static', filename='/js/vendor/jquery-jvectormap-1.2.2.min.js')}}"></script>
         <script src="{{ url_for('static', filename='/js/vendor/jquery-jvectormap-world-mill-en.js')}}"></script>
         <!-- third party js ends -->
-
-        <!-- demo app -->
-        <script src="{{ url_for('static', filename='/js/pages/demo.dashboard.js')}}"></script>
-        <!-- end demo js-->
         <script>
             // Fetch user IDs and their default values
             function loadUserIds() {
@@ -444,8 +440,6 @@
                                     const defaultWatchList = data[userId]['default_watch_list'] || '';
                                     const analysis_period = data[userId]['analysis_period'] || '50';
                                     const watch_list_trend_days = data[userId]['watch_list_trend_days'] || '30';
-                                    console.log(analysis_period)
-                                    console.log(watch_list_trend_days)
                                     // Populate tickers and watchlist
                                     populateInputBoxes(defaultTickers, 'tickers-container', 'tickers-input', 'tickers');
                                     populateInputBoxes(defaultWatchList, 'watch-list-container', 'watch-list-input', 'watch_list');
