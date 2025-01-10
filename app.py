@@ -11,6 +11,15 @@ import datetime
 app = Flask(__name__, template_folder='templates')
 app.secret_key = 'your_secret_key_here'  # Required for flash messages
 
+def clean_list(input_string):
+    return list(dict.fromkeys([item.strip() for item in input_string.split(',') if item.strip()]))
+
+def get_user_data_or_redirect():
+    user_id = session.get('user_id')
+    if not user_id:
+        return None ,None, redirect(url_for('home'))
+    return user_data_utils.load_user_data(user_id), user_id, None
+
 @app.route('/')
 def home():
     user_id = session.get('user_id')
@@ -30,12 +39,7 @@ def results():
         user_id = session.get('user_id')
         if request.method == 'POST':
             user_id = request.form.get('user_id')
-            tickers = [ticker.strip() for ticker in request.form.get('tickers', '').split(',')]
-            watch_list = [ticker.strip() for ticker in request.form.get('watch_list', '').split(',')]
-            tickers = list(dict.fromkeys(tickers))
-            watch_list = list(dict.fromkeys(watch_list))
-            period = int(request.form.get('period', 150))
-            watch_list_trend_days = int(request.form.get('watch_list_trend_days', 30))
+            session['user_id'] = user_id
             user_data = {
                 "default_tickers": request.form.get('tickers', ''),
                 "default_watch_list": request.form.get('watch_list', ''),
@@ -43,7 +47,6 @@ def results():
                 "watch_list_trend_days": request.form.get('watch_list_trend_days', '')
             }
             user_data_utils.save_user_data(user_id, user_data)
-            session['user_id'] = user_id
             return render_template('results.html', results=results, missing_tickers=results["missing"], user_id=user_id)
         if request.method == 'GET':
             user_id = session.get('user_id')
@@ -66,136 +69,53 @@ def clean_json(data):
         return None
     return data
 
-@app.route('/fetch_stocks/<period>', methods=['GET'])
-def fetcher(period):
+def clean_list(stocklist):
+    stocklist = stocklist.split(',')
+    ticker= list(set([ticker.strip() for ticker in stocklist]))
+    print(ticker)
+    return ticker
+
+@app.route('/fetch_stocks/<int:period>', methods=['GET'])
+def fetch_stocks(period):
     try:
-            period = int(period)
-            user_id = session.get('user_id')
-            if user_id:
-                user_data = user_data_utils.load_user_data(user_id)
-                tickers = [ticker.strip() for ticker in user_data[user_id].get('default_tickers', '').split(',')]
-                watch_list = [ticker.strip() for ticker in user_data[user_id].get('default_watch_list', '').split(',')]
-                tickers = list(set(tickers))
-                watch_list = list(set(watch_list))
-                analysis_period = int(user_data_utils.get_user_analysis_period(user_data, user_id))
-                watch_list_trend_days = int(user_data_utils.get_user_watch_list_trend_days(user_data,user_id))
-                print(watch_list_trend_days)
-                tickers_data = stock_utils.fetch_and_store_stock_data(tickers + watch_list, period + 150)
-                results = {"portfolio": [], "watch_list": [], "missing": []}
-
-                for ticker in set(tickers + watch_list):
-                    if ticker in tickers:
-                        process_ticker(ticker, tickers_data, results["portfolio"], period, missing_list=results["missing"])
-                    if ticker in watch_list:
-                        process_ticker(ticker, tickers_data, results["watch_list"], period, watch_list_trend_days, missing_list=results["missing"])
-
-                user_data["results"] = results
-                clean_results = clean_json(results)
-                response = json.dumps({"results": clean_results, "missing_tickers": results["missing"], "user_id": user_id})
-                return app.response_class(response, content_type='application/json')
-
-
-            return redirect(url_for('home'))
+            user_data, user_id, redirect_response = get_user_data_or_redirect()
+            if redirect_response:
+                return redirect_response
+            tickers = clean_list(user_data[user_id].get("default_tickers", ''))
+            watch_list = clean_list(user_data[user_id].get("default_watch_list", ''))
+            analysis_period = int(user_data[user_id].get("analysis_period", ''))
+            watch_list_trend_days = int(user_data[user_id].get("watch_list_trend_days", ''))
+            tickers_data = stock_utils.fetch_and_store_stock_data(tickers + watch_list, period + 150)
+            print(tickers_data)
+            results = {"portfolio": [], "watch_list": [], "missing": []}
+            for ticker in set(tickers + watch_list):
+                if ticker in tickers:
+                    stock_utils.process_ticker(ticker, tickers_data, results["portfolio"], period, missing_list=results["missing"])
+                if ticker in watch_list:
+                    stock_utils.process_ticker(ticker, tickers_data, results["watch_list"], period, watch_list_trend_days, missing_list=results["missing"])
+            clean_results = clean_json(results)
+            response = json.dumps({"results": clean_results, "missing_tickers": results["missing"], "user_id": user_id})
+            return app.response_class(response, content_type='application/json')
 
     except Exception as e:
         print(f"DEBUG: Error processing request: {e}")
         return app.response_class(json.dumps({"error": str(e)}), content_type='application/json', status=400)
 
-# Helper function to process each ticker for both portfolio and watch list
-def process_ticker(ticker, tickers_data, result_list, period, watch_list_trend_days=None, missing_list=None):
-    if ticker in tickers_data and not tickers_data[ticker].empty:
-        close_prices = tickers_data[ticker]
-        dates = close_prices.index[-period:].strftime('%Y-%m-%d').tolist()
-        last_50_closes = close_prices[-period:].tolist()
-        last_50_ma = close_prices.rolling(window=150).mean().iloc[-period:].tolist()
-
-        if len(close_prices) < 150:
-            rolling_avg = None
-            percentage_diff = None
-            current_price = close_prices.iloc[-1] if len(close_prices) > 0 else None
-        else:
-            rolling_avg = close_prices.rolling(window=150).mean().iloc[-1]
-            current_price = close_prices.iloc[-1]
-
-        if rolling_avg is not None and not pd.isna(rolling_avg):
-            percentage_diff = ((current_price - rolling_avg) / rolling_avg) * 100
-            action = "Sell" if percentage_diff < 0 else ""
-        else:
-            percentage_diff = None
-            action = "Insufficient Data"
-
-        result = {
-            'ticker': ticker,
-            'current_price': f"${current_price:.2f}" if current_price else "N/A",
-            'average_price': f"${rolling_avg:.2f}" if rolling_avg else "N/A",
-            'percentage_diff': f"{percentage_diff:.2f}%" if percentage_diff else "N/A",
-            'action': action,
-            'external_link': f"https://finance.yahoo.com/quote/{ticker}/chart",
-            'last_50_closes': last_50_closes,
-            'last_50_ma': last_50_ma,
-            'dates': dates
-        }
-
-        # For watch list, check the trend status
-        if watch_list_trend_days:
-            trend = stock_utils.check_upward_trend(close_prices, watch_list_trend_days)
-            trend_status = "Upward" if trend else "Not upward"
-
-            if trend_status == "Not upward":
-                action = "Stay Away"
-            elif trend_status == "Upward":
-                if percentage_diff is not None and (-1.5 < percentage_diff < 1.5) and current_price > rolling_avg:
-                    action = "Buy"
-                elif percentage_diff is not None and -2 < percentage_diff < 2 and current_price < rolling_avg:
-                    action = "Get Ready"
-                elif percentage_diff is not None and percentage_diff > 1.5 and current_price > rolling_avg:
-                    action = "Next Time"
-                else:
-                    action = "Non relevant"
-            else:
-                action = "Non relevant"
-
-            result['action'] = action
-            result['trend_status'] = trend_status
-
-        result_list.append(result)
-    else:
-        if missing_list is not None:
-            missing_list.append(ticker)
-
-    
 
 @app.route('/latest_prices', methods=['GET'])
 def latest_prices():
     try:
-        user_id = session.get('user_id')
-        if not user_id:
-            flash("User ID is required to fetch the latest prices.", "warning")
+        user_data, user_id, redirect_response = get_user_data_or_redirect()
+        if redirect_response:
             return json.dumps({'error': 'User ID is required'}), 400
-
-        user_data = user_data_utils.load_user_data(user_id)
-        if not user_data or user_id not in user_data:
-            flash(f"No data found for User ID '{user_id}'.", "warning")
-            return json.dumps({'error': f"No data found for User ID '{user_id}'"}), 404
-        
         current_date = datetime.datetime.now()
         market_open = stock_utils.market_is_open_now(current_date)
 
-        # Extract tickers from default_tickers and default_watch_list
-        default_tickers = user_data[user_id].get("default_tickers", "")
-        default_watch_list = user_data[user_id].get("default_watch_list", "")
-        tickers = default_tickers.split(",") + default_watch_list.split(",")
-        tickers = [ticker.strip() for ticker in tickers if ticker.strip()]  # Clean up any empty strings or whitespace
+        default_tickers = clean_list(user_data[user_id].get("default_tickers", ''))
+        default_watch_list = clean_list(user_data[user_id].get("default_watch_list", ''))
+        tickers = default_tickers + default_watch_list
         latest_prices = {}
-        for ticker in tickers:
-            current_price = stock_utils.get_current_price(ticker)
-            if not current_price != current_price:
-                try:
-                    formatted_price = f"{current_price:.2f}"
-                    latest_prices[ticker] = {'current_price': formatted_price}
-                except ValueError:
-                    print(f"Invalid price for ticker {ticker}: {current_price}")
-        
+        latest_prices = stock_utils.get_current_price(tickers)
         if not market_open:
             next_open = stock_utils.next_market_open()
             return json.dumps({'market_status': 'closed', 'next_open': next_open, 'latest_prices': latest_prices}), 200
@@ -244,7 +164,7 @@ def new_user():
 def edit():
     try:
         user_id = request.args.get('user_id', 'default_user')
-        user_data = user_data_utils.load_user_data(user_id)
+        user_data = get_user_data_or_redirect()
         return render_template('index.html', default_tickers=user_data[user_id]['default_tickers'], default_watch_list=user_data[user_id]['default_watch_list'])
     except Exception as e:
         print(f"DEBUG: Error loading user data: {e}")
@@ -436,8 +356,8 @@ def stock_performance(user_id):
         tickers = user_data[user_id].get("default_tickers", "").split(",")
         tickers = [ticker.strip() for ticker in tickers if ticker.strip()]
         stock_data = stock_utils.fetch_and_store_stock_data(tickers, days)
-        current_prices = {ticker: stock_utils.get_current_price(ticker) for ticker in tickers}
-
+        current_prices = stock_utils.get_current_price(tickers)
+        print(f"The price of AMZN is: {current_prices.get('AMZN', {}).get('current_price', 'Ticker not found')}")
         # Load weight data from heatmap data
         heatmap_data = load_heatmap_data(user_id)
 
@@ -456,7 +376,7 @@ def stock_performance(user_id):
                 else:
                     old_price = 0
             
-            new_price = current_prices.get(ticker, 0)
+            new_price = float(current_prices.get(ticker, {}).get('current_price', 'Ticker not found'))
             percentage_change = ((new_price - old_price) / old_price) * 100 if old_price else 0
 
             weight_data = purchase_data.get('weight', 0)

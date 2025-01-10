@@ -263,8 +263,6 @@ document.addEventListener('DOMContentLoaded', async (event) => {
             const userData = await userDataResponse.json();
             if (userData && userData[userId]) {
                 const analysis_period = userData[userId]['analysis_period'] || '';
-                console.log('Analysis Period:', analysis_period);
-
                 loadingElement.style.display = 'flex';
 
                 const response = await fetch(`/fetch_stocks/${analysis_period}`);
@@ -355,7 +353,7 @@ function storeInitialPrices(results) {
                                 </div>
                             </div>
                             <div class="flex-grow-1 ms-3">
-                                <h4 class="mt-0 mb-1 font-20"><a href="${result.external_link}" target="_blank">${result.ticker}</a></h4>
+                                <h4 class="mt-0 mb-1 font-20"><a href="https://finance.yahoo.com/quote/${result.ticker}/chart" target="_blank">${result.ticker}</a></h4>
                                 <p class="mb-0 text-muted"><i id="arrow-${result.ticker}" class="mdi mdi-arrow-up-bold text-success"></i><span id="price-${result.ticker}">${result.current_price}</span></p>
                                 <p class="card-text">Average Price: ${result.average_price}</p>
                                 <p class="card-text">Percentage Difference: ${result.percentage_diff}</p>
@@ -446,14 +444,13 @@ function storeInitialPrices(results) {
                 createChart(
                     `${result.ticker}${suffix}Chart`,
                     result.dates,
-                    result.last_50_closes,
-                    result.last_50_ma
+                    result.period_closes,
+                    result.period_ma
                 );
             });
         }
 
         function processPrices(results, type) {
-            console.log(`Iterating through ${type}`);
             results.forEach(result => {
                 const ticker = result.ticker;
                 const priceElement = document.getElementById('price-' + ticker);
