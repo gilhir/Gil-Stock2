@@ -5,8 +5,8 @@ import stock_utils
 import json
 import user_data_utils
 import git
+import numpy as np
 import datetime
-import time
 
 app = Flask(__name__, template_folder='templates')
 app.secret_key = 'your_secret_key_here'  # Required for flash messages
@@ -24,84 +24,88 @@ def logout():
     session.pop('user_id', None)
     return redirect(url_for('home'))
 
-
-@app.route('/results', methods=['GET', 'POST'])
+@app.route('/results', methods=['GET','POST'])
 def results():
     try:
-        start_time = time.time()
         user_id = session.get('user_id')
         if request.method == 'POST':
-            # Extract user input from the form
             user_id = request.form.get('user_id')
             tickers = [ticker.strip() for ticker in request.form.get('tickers', '').split(',')]
             watch_list = [ticker.strip() for ticker in request.form.get('watch_list', '').split(',')]
-            # Example optimization for duplicate removal
             tickers = list(dict.fromkeys(tickers))
             watch_list = list(dict.fromkeys(watch_list))
             period = int(request.form.get('period', 150))
             watch_list_trend_days = int(request.form.get('watch_list_trend_days', 30))
             user_data = {
                 "default_tickers": request.form.get('tickers', ''),
-                "default_watch_list": request.form.get('watch_list', '')
+                "default_watch_list": request.form.get('watch_list', ''),
+                "analysis_period": request.form.get('period', ''),
+                "watch_list_trend_days": request.form.get('watch_list_trend_days', '')
             }
             user_data_utils.save_user_data(user_id, user_data)
             session['user_id'] = user_id
-            tickers_data = stock_utils.fetch_and_store_stock_data(tickers + watch_list, period + 150)
-            results = {"portfolio": [], "watch_list": [], "missing": []}
-            
-            # Combining operations to minimize loops
-            for ticker in set(tickers + watch_list):
-                if ticker in tickers:
-                    process_ticker(ticker, tickers_data, results["portfolio"], missing_list=results["missing"])
-                if ticker in watch_list:
-                    process_ticker(ticker, tickers_data, results["watch_list"], watch_list_trend_days, period, missing_list=results["missing"])
-            end_time=time.time()
-            execution_time = end_time - start_time
-            print(f"Execution time: {execution_time} seconds")
-            user_data["results"] = results
             return render_template('results.html', results=results, missing_tickers=results["missing"], user_id=user_id)
-
-        if request.method == 'GET' and user_id is not None:
-            
-            user_id = session['user_id']
-            user_data = user_data_utils.load_user_data(user_id)
-            tickers = [ticker.strip() for ticker in user_data[user_id].get('default_tickers', '').split(',')]
-            watch_list = [ticker.strip() for ticker in user_data[user_id].get('default_watch_list', '').split(',')]
-            tickers = list(set(tickers))  # Remove duplicates
-            watch_list = list(set(watch_list))  # Remove duplicates
-            period = 150
-            watch_list_trend_days = 30
-            tickers_data = stock_utils.fetch_and_store_stock_data(tickers + watch_list, period + 150)
-            results = {"portfolio": [], "watch_list": [], "missing": []}
-
-            for ticker in set(tickers + watch_list):
-                if ticker in tickers:
-                    process_ticker(ticker, tickers_data, results["portfolio"], missing_list=results["missing"])
-                if ticker in watch_list:
-                    process_ticker(ticker, tickers_data, results["watch_list"], watch_list_trend_days, period, missing_list=results["missing"])
-
-            user_data["results"] = results
-            end_time=time.time()
-            execution_time = end_time - start_time
-            print(f"Execution time: {execution_time} seconds")
-            return render_template('results.html', results=results, missing_tickers=results["missing"], user_id=user_id)
-
+        if request.method == 'GET':
+            user_id = session.get('user_id')
+            if user_id is not None:
+                return render_template('results.html', user_id=user_id)
         else:
-            print(user_id)
             return redirect(url_for('home'))
-
     except Exception as e:
         print(f"DEBUG: Error processing request: {e}")
         flash(f"An error occurred: {e}", "danger")
         return redirect(url_for('home'))
+
     
+def clean_json(data):
+    if isinstance(data, dict):
+        return {k: clean_json(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [clean_json(i) for i in data]
+    elif isinstance(data, float) and np.isnan(data):
+        return None
+    return data
+
+@app.route('/fetch_stocks/<period>', methods=['GET'])
+def fetcher(period):
+    try:
+            period = int(period)
+            user_id = session.get('user_id')
+            if user_id:
+                user_data = user_data_utils.load_user_data(user_id)
+                tickers = [ticker.strip() for ticker in user_data[user_id].get('default_tickers', '').split(',')]
+                watch_list = [ticker.strip() for ticker in user_data[user_id].get('default_watch_list', '').split(',')]
+                tickers = list(set(tickers))
+                watch_list = list(set(watch_list))
+                watch_list_trend_days = 30
+                tickers_data = stock_utils.fetch_and_store_stock_data(tickers + watch_list, period + 150)
+                results = {"portfolio": [], "watch_list": [], "missing": []}
+
+                for ticker in set(tickers + watch_list):
+                    if ticker in tickers:
+                        process_ticker(ticker, tickers_data, results["portfolio"], period, missing_list=results["missing"])
+                    if ticker in watch_list:
+                        process_ticker(ticker, tickers_data, results["watch_list"], watch_list_trend_days, period, missing_list=results["missing"])
+
+                user_data["results"] = results
+                clean_results = clean_json(results)
+                response = json.dumps({"results": clean_results, "missing_tickers": results["missing"], "user_id": user_id})
+                return app.response_class(response, content_type='application/json')
+
+
+            return redirect(url_for('home'))
+
+    except Exception as e:
+        print(f"DEBUG: Error processing request: {e}")
+        return app.response_class(json.dumps({"error": str(e)}), content_type='application/json', status=400)
+
 # Helper function to process each ticker for both portfolio and watch list
-def process_ticker(ticker, tickers_data, result_list, watch_list_trend_days=None, period=None, missing_list=None):
+def process_ticker(ticker, tickers_data, result_list, period, watch_list_trend_days=None, missing_list=None):
     if ticker in tickers_data and not tickers_data[ticker].empty:
         close_prices = tickers_data[ticker]
-        dates = close_prices.index[-50:].strftime('%Y-%m-%d').tolist()
-        last_50_closes = close_prices[-50:].tolist()
-        last_50_ma = close_prices.rolling(window=150).mean().iloc[-50:].tolist()
+        dates = close_prices.index[-period:].strftime('%Y-%m-%d').tolist()
+        last_50_closes = close_prices[-period:].tolist()
+        last_50_ma = close_prices.rolling(window=150).mean().iloc[-period:].tolist()
 
         if len(close_prices) < 150:
             rolling_avg = None

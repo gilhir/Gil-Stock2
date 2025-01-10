@@ -123,7 +123,6 @@ async function loadHeatmap(userId) {
       const heatmapData = await heatmapDataResponse.json();
       const dailyPerformanceResponse = await fetch(`/stock_performance/${userId}?period=1day`);
       const dailyPerformance = await dailyPerformanceResponse.json();  
-      console.log(dailyPerformance)
       updateWidgets(heatmapData, dailyPerformance); 
   
     } catch (error) {
@@ -169,6 +168,7 @@ function updateWidgets(stockData,dailyPerformance) {
     document.getElementById("portfolio-beginning").innerText = portfolioFromBeginning.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");    
     updateArrow('portfolio-beginning', '#portfolio-beginning + i');
     updateArrow('portfolio-today', '#portfolio-today + i');
+    document.getElementById('loading').style.display = 'none';
 }
 
 function fetchStockPerformanceDay(period) {

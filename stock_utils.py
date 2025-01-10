@@ -67,7 +67,6 @@ def process_ticker_data(ticker, new_data, data, start_date, end_date):
     last_updated_date = (
         datetime.datetime.strptime(last_updated, "%Y-%m-%d").date() if last_updated else None
     )
-
     # Skip if already updated
     if last_updated_date == end_date:
         return
@@ -98,7 +97,7 @@ def process_ticker_data(ticker, new_data, data, start_date, end_date):
     ]
 
     # **Truncate to the most recent 300 entries**
-    stored_data["prices"] = stored_data["prices"][-300:]
+    stored_data["prices"] = stored_data["prices"][-700:]
 
     # Save updated data back to the historical data store
     data["historical_data"][ticker] = stored_data
