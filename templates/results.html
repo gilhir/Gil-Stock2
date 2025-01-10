@@ -278,6 +278,7 @@ document.addEventListener('DOMContentLoaded', async (event) => {
 
                 const data = await response.json();
                 const results = data.results;
+                initialPrices = storeInitialPrices(results);
 
                 renderResults(results);
                 initializeCharts(results.portfolio, '');
@@ -296,6 +297,21 @@ document.addEventListener('DOMContentLoaded', async (event) => {
         loadingElement.style.display = 'none';
     }
 });
+
+function storeInitialPrices(results) {
+    const prices = {};
+    if (results.portfolio && Array.isArray(results.portfolio)) {
+        results.portfolio.forEach(stock => {
+            prices[stock.ticker] = parseFloat(stock.current_price.replace('$', ''));
+        });
+    }
+    if (results.watch_list && Array.isArray(results.watch_list)) {
+        results.watch_list.forEach(stock => {
+            prices[stock.ticker] = parseFloat(stock.current_price.replace('$', ''));
+        });
+    }
+    return prices;
+}
 
                 function renderResults(results) {
             const actions = ['Buy', 'Get Ready', 'Next Time', 'Stay Away', 'Non relevant'];
@@ -507,22 +523,19 @@ document.addEventListener('DOMContentLoaded', async (event) => {
             }
         }
 
+
     function updatePricesAndCharts(latestPrices) {
     // Ensure latestPrices is an object before iterating
     if (typeof latestPrices === 'object' && latestPrices !== null) {
         Object.keys(latestPrices).forEach(ticker => {
-            const latestPrice = parseFloat(latestPrices[ticker].current_price.replace('$', ''));
-
             const priceElement = document.getElementById('price-' + ticker);
+            const initialPrice = initialPrices[ticker]; // Get the initial price from the global object
+            const latestPrice = parseFloat(latestPrices[ticker].current_price.replace('$', ''));
             const arrowElement = document.getElementById('arrow-' + ticker);
 
+            priceElement.innerText = `$${latestPrice.toFixed(2)}`;
             if (priceElement && arrowElement) {
-                const rawLastRecordedPrice = priceElement.innerText;
-                const lastRecordedPrice = parseFloat(rawLastRecordedPrice.replace('$', ''));
-
-                priceElement.innerText = `$${latestPrice.toFixed(2)}`;
-
-                if (latestPrice >= lastRecordedPrice) {
+                if (latestPrice >= initialPrice) {
                     arrowElement.classList.remove('mdi-arrow-down-bold', 'text-danger');
                     arrowElement.classList.add('mdi-arrow-up-bold', 'text-success');
                 } else {
