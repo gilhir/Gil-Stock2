@@ -407,13 +407,14 @@ function storeInitialPrices(results) {
                             borderColor: 'rgba(114,124,245, 1)',
                             backgroundColor: 'rgba(114,124,245, 0.2)',
                             fill: false,
+                            lineTension: 0.5
                         },
                         {
                             label: chartId + ' Moving Average',
                             data: movingAverages,
-                            borderColor: 'rgba(10,207,151, 1)',
-                            backgroundColor: 'rgba(10,207,151, 0.2)',
-                            fill: false,
+                            borderColor: 'rgba(152,166,173, 1)',
+                            backgroundColor: 'rgba(152,166,173, 0.2)',
+                            fill: !0,
                         }
                     ]
                 },
@@ -434,7 +435,12 @@ function storeInitialPrices(results) {
                                 return tooltipItem.yLabel;
                             }
                         }
+                    },elements: {
+                    point:{
+                        radius: 1.6
                     }
+                }
+
                 }
             });
         }
