@@ -86,7 +86,6 @@ def fetch_stocks(period):
             analysis_period = int(user_data[user_id].get("analysis_period", ''))
             watch_list_trend_days = int(user_data[user_id].get("watch_list_trend_days", ''))
             tickers_data = stock_utils.fetch_and_store_stock_data(tickers + watch_list, period + 150)
-            print(tickers_data)
             results = {"portfolio": [], "watch_list": [], "missing": []}
             for ticker in set(tickers + watch_list):
                 if ticker in tickers:
@@ -328,27 +327,84 @@ def visualization():
         print(f"DEBUG: Error fetching visualization data for {user_id}: {e}")
         return json.dumps({"error": str(e)}), 500
 
+# List of market holidays for 2025, 2026, and 2027
+market_holidays = [
+    datetime.date(2025, 1, 1),  # New Year's Day
+    datetime.date(2025, 1, 9),  # Jimmy Carter NDoM
+    datetime.date(2025, 1, 20),  # Martin Luther King, Jr. Day
+    datetime.date(2025, 2, 17),  # Washington's Birthday
+    datetime.date(2025, 4, 18),  # Good Friday
+    datetime.date(2025, 5, 26),  # Memorial Day
+    datetime.date(2025, 6, 19),  # Juneteenth National Independence Day
+    datetime.date(2025, 7, 4),   # Independence Day
+    datetime.date(2025, 9, 1),   # Labor Day
+    datetime.date(2025, 11, 27), # Thanksgiving Day
+    datetime.date(2025, 12, 25), # Christmas Day
+
+    datetime.date(2026, 1, 1),   # New Year's Day
+    datetime.date(2026, 1, 19),  # Martin Luther King, Jr. Day
+    datetime.date(2026, 2, 16),  # Washington's Birthday
+    datetime.date(2026, 4, 3),   # Good Friday
+    datetime.date(2026, 5, 25),  # Memorial Day
+    datetime.date(2026, 6, 19),  # Juneteenth National Independence Day
+    datetime.date(2026, 7, 3),   # Independence Day observed
+    datetime.date(2026, 9, 7),   # Labor Day
+    datetime.date(2026, 11, 26), # Thanksgiving Day
+    datetime.date(2026, 12, 25), # Christmas Day
+
+    datetime.date(2027, 1, 1),   # New Year's Day
+    datetime.date(2027, 1, 18),  # Martin Luther King, Jr. Day
+    datetime.date(2027, 2, 15),  # Washington's Birthday
+    datetime.date(2027, 3, 26),  # Good Friday
+    datetime.date(2027, 5, 31),  # Memorial Day
+    datetime.date(2027, 6, 18),  # Juneteenth National Independence Day observed
+    datetime.date(2027, 7, 5),   # Independence Day observed
+    datetime.date(2027, 9, 6),   # Labor Day
+    datetime.date(2027, 11, 25), # Thanksgiving Day
+    datetime.date(2027, 12, 24), # Christmas Day observed
+]
+
+def days_passed_since_start_of_year():
+    today = datetime.date.today()
+    start_of_year = datetime.date(today.year, 1, 1)
+    days_passed = 0
+
+    for single_date in (start_of_year + datetime.timedelta(n) for n in range((today - start_of_year).days + 1)):
+        if single_date.weekday() < 5 and single_date not in market_holidays:  # Weekdays are 0 (Monday) to 4 (Friday)
+            days_passed += 1
+
+    return days_passed
+
+
+        
 @app.route('/stock_performance/<user_id>', methods=['GET'])
 def stock_performance(user_id):
     try:
+        days_passed = days_passed_since_start_of_year() + 1
         period = request.args.get('period')
+        print(request.args.get('period'))
         period_mapping = {
             '1day': 1,
+            '2day':2,
             '5days': 5,
             '1month': 30,
             '3months': 90,
             '6months': 180,
             '1year': 365,
+            'YTD': int(days_passed),
             '3years': 1095,
             'alltime': 10000,  # Arbitrary large number for all time
         }
 
+        
         if period in ['from_beginning', 'since_bought']:
             days = 0
+            print('frombeggining')
+
         else:
             days = period_mapping.get(period, 10000)
+            print(f'else{days}')
             
-        print(days)
         user_data = user_data_utils.load_user_data(user_id)
         if not user_data or user_id not in user_data:
             return json.dumps({'error': 'User ID not found'}), 404
@@ -357,7 +413,6 @@ def stock_performance(user_id):
         tickers = [ticker.strip() for ticker in tickers if ticker.strip()]
         stock_data = stock_utils.fetch_and_store_stock_data(tickers, days)
         current_prices = stock_utils.get_current_price(tickers)
-        print(f"The price of AMZN is: {current_prices.get('AMZN', {}).get('current_price', 'Ticker not found')}")
         # Load weight data from heatmap data
         heatmap_data = load_heatmap_data(user_id)
 
@@ -373,11 +428,13 @@ def stock_performance(user_id):
                     dates = sorted(stock_data[ticker].keys())
                     date_days_ago = dates[-days] if len(dates) >= days else dates[0]
                     old_price = stock_data[ticker][date_days_ago]
+                    print(ticker,old_price,date_days_ago)
                 else:
                     old_price = 0
             
             new_price = float(current_prices.get(ticker, {}).get('current_price', 'Ticker not found'))
             percentage_change = ((new_price - old_price) / old_price) * 100 if old_price else 0
+            print(ticker,new_price)
 
             weight_data = purchase_data.get('weight', 0)
             percentage_diff = purchase_data.get('percentage_diff', 0)

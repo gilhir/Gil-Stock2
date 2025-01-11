@@ -169,10 +169,11 @@
                                                 <div class="legend-item" id="legend-max" style="background-color: darkgreen;"></div>
                                             </div>
                                             <div class="toolbar">
+                                                <button id="one_month" onclick="fetchStockPerformance('2day')" class="btn btn-sm btn-light">1D</button>
                                                 <button id="one_month" onclick="fetchStockPerformance('1month')" class="btn btn-sm btn-light">1M</button>
                                                 <button id="six_months" onclick="fetchStockPerformance('6months')" class="btn btn-sm btn-light">6M</button>
                                                 <button id="one_year" onclick="fetchStockPerformance('1year')" class="btn btn-sm btn-light active">1Y</button>
-                                                <button id="ytd" class="btn btn-sm btn-light">YTD</button>
+                                                <button id="ytd" onclick="fetchStockPerformance('YTD')" class="btn btn-sm btn-light">YTD</button>
                                                 <button id="all" onclick="fetchStockPerformance('since_bought')" class="btn btn-sm btn-light">ALL</button>
                                             </div>
                                         </div>
@@ -373,7 +374,9 @@
             
             function fetchStockPerformance(period) {
                 const userId = {{ user_id|tojson }};
-                return fetch(`/stock_performance/${userId}?period=${period}`)
+                string = `/stock_performance/${userId}?period=${period}`
+                console.log(string)
+                return fetch(string)
                     .then(response => response.json())
                     .then(data => {
                         updateVisualization(data);
