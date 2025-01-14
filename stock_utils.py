@@ -152,9 +152,7 @@ def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.g
         if last_updated < oldest_date:
             oldest_date = last_updated
 
-    start_date = oldest_date + datetime.timedelta(days=1)
-    print(start_date)
-    print(end_date)
+    outdated_start_date = oldest_date + datetime.timedelta(days=1)
 
     tickers_to_update = missing_tickers + outdated_tickers
     print(f"Tickers to update: {tickers_to_update}")
@@ -180,13 +178,21 @@ def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.g
             return None
 
     for tickers_batch in tickers_batches:
-        tickers_batch_to_process = [ticker for ticker in tickers_batch if ticker in tickers_to_update]
+        tickers_batch_to_process = [ticker for ticker in tickers_batch if ticker in missing_tickers]
         if tickers_batch_to_process:
             ticker_data = fetch_data(tickers_batch_to_process, start_date, end_date)
             if ticker_data is not None:
                 for ticker in tickers_batch_to_process:
                     if ticker in ticker_data:
                         process_ticker_data(ticker, ticker_data[ticker], data, start_date, end_date)
+        tickers_batch_to_process = [ticker for ticker in tickers_batch if ticker in outdated_tickers]
+        if tickers_batch_to_process:
+            ticker_data = fetch_data(tickers_batch_to_process, outdated_start_date, end_date)
+            if ticker_data is not None:
+                for ticker in tickers_batch_to_process:
+                    if ticker in ticker_data:
+                        process_ticker_data(ticker, ticker_data[ticker], data, outdated_start_date, end_date)
+        
 
     data["global_last_updated"] = end_date.strftime("%Y-%m-%d")
     save_compressed(data, data_file)
