@@ -419,6 +419,7 @@ def stock_performance(user_id):
         # Calculate performance and prepare the JSON response
         performance_data = {}
         for ticker in tickers:
+            print(ticker)
             purchase_data = heatmap_data.get(ticker, [{}])[0]
 
             if period in ['from_beginning', 'since_bought']:

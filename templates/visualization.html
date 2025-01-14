@@ -370,8 +370,6 @@
         
         <script>
             const tickerData = {{ ticker_data | tojson }};
-    
-            
             function fetchStockPerformance(period) {
                 const userId = {{ user_id|tojson }};
                 string = `/stock_performance/${userId}?period=${period}`
@@ -446,12 +444,6 @@ function fetchProfit(timeperiod, element) {
     init(); // Call init here
 }
 
-function fetchProfit(timeperiod, element) {
-    period = timeperiod;
-    setActiveLink(element);
-    init(); // Call init here
-}
-
 function setActiveLink(element) {
     if (!element) return; // Check if the element is defined
     // Remove the active class from all links
@@ -484,9 +476,10 @@ async function init() {
         }
         const dates = [];
         const seriesData = {};
-
+        console.log('after series')
         // Extract dates and prices
         stocksData.results.portfolio.forEach(stock => {
+            console.log('results')
             const ticker = stock.ticker;
             seriesData[ticker] = stock.dates.map((date, index) => ({
                 date,
@@ -505,6 +498,7 @@ async function init() {
 
         // Calculate total portfolio value over time
         const portfolioValues = dates.map(date => {
+            
             let totalValue = 0;
             Object.keys(seriesData).forEach(ticker => {
                 let stockData = seriesData[ticker].find(d => d.date === date);
@@ -513,6 +507,7 @@ async function init() {
                 }
                 const stockInfo = heatmapData[ticker] ? heatmapData[ticker][0] : null;
                 if (stockInfo) {
+                    console.log('Ticker:',ticker,'number of stocks',stockInfo.number_of_stocks,'price',stockData.price,'total value',totalValue)
                     totalValue += stockInfo.number_of_stocks * stockData.price;
                 }
             });

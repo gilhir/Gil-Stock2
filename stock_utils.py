@@ -20,8 +20,6 @@ def load_compressed(filename):
     with gzip.open(filename, "rt", encoding="utf-8") as f:
         return json.load(f)
     
-from pytz import timezone
-
 def market_is_open_now(date):
     now = datetime.datetime.now()
     result = mcal.get_calendar("NYSE").schedule(start_date=now.date(), end_date=date)
@@ -73,8 +71,18 @@ def get_current_price(tickers):
         print(f"Error fetching prices: {e}")
         return {ticker: {"current_price": "nan"} for ticker in tickers.split()}
 
+def validate_json_structure(data):
+    required_keys = {"historical_data", "global_last_updated"}
+    if not all(key in data for key in required_keys):
+        raise ValueError("Invalid JSON structure: Missing required keys")
 
 def process_ticker_data(ticker, new_data, data, start_date, end_date):
+    try:
+        validate_json_structure(data)
+    except ValueError as e:
+        print(e)
+        return
+
     stored_data = data["historical_data"].get(ticker, {"prices": [], "last_updated": None})
     last_updated = stored_data.get("last_updated")
     last_updated_date = (
@@ -82,73 +90,71 @@ def process_ticker_data(ticker, new_data, data, start_date, end_date):
     )
     if last_updated_date == end_date:
         return
+
     if new_data is None or new_data.empty:
         print(f"Warning: No valid data fetched for ticker {ticker}")
         return
 
-    # Ensure the DataFrame contains the expected 'Close' column
     if "Close" not in new_data.columns:
         print(f"Error: Missing 'Close' column for ticker {ticker}")
         return
 
-    # Process and append new data
+    existing_dates = {entry[0] for entry in stored_data["prices"]}
     for date, row in new_data.iterrows():
-        if not pd.isna(row["Close"]):
-            # Store date as compact string and price rounded to 2 decimals
-            stored_data["prices"].append([date.strftime("%Y%m%d"), round(row["Close"], 2)])
+        date_str = date.strftime("%Y%m%d")
+        if date_str not in existing_dates and not pd.isna(row["Close"]):
+            stored_data["prices"].append([date_str, round(row["Close"], 2)])
 
-    # Update last updated date
     stored_data["last_updated"] = end_date.strftime("%Y-%m-%d")
 
-    # Filter prices to keep only within the start_date range
     stored_data["prices"] = [
         entry for entry in stored_data["prices"]
         if datetime.datetime.strptime(entry[0], "%Y%m%d").date() >= start_date
     ]
 
-    # **Truncate to the most recent 300 entries**
     stored_data["prices"] = stored_data["prices"][-700:]
 
-    # Save updated data back to the historical data store
     data["historical_data"][ticker] = stored_data
 
-
 def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.gz"):
-    global current_task
-    if current_task == 'get_current_prices':
-        print("get_current_prices is currently running. Skipping process_ticker_data.")
+    try:
+        data = load_compressed(data_file)
+        validate_json_structure(data)  # Validate JSON structure
+    except (ValueError, json.JSONDecodeError) as e:
+        print(f"Error loading data file: {e}")
+        os.remove(data_file)  # Delete the invalid file
         return
-    current_task = 'fetch_and_store_stock_data'
-    data = load_compressed(data_file)
+
     end_date = datetime.datetime.now().date()
     start_date = end_date - datetime.timedelta(days=period + 150)
 
-    batch_size = 100  # Adjust batch size as needed
+    batch_size = 100
     tickers_batches = [tickers[i:i + batch_size] for i in range(0, len(tickers), batch_size)]
 
-    # Step 1: Check if global data is up-to-date
     global_last_updated = data.get("global_last_updated", None)
     global_last_updated_date = (
         datetime.datetime.strptime(global_last_updated, "%Y-%m-%d").date()
         if global_last_updated else None
     )
 
-    # Skip if global data is up-to-date
     if global_last_updated_date == end_date:
         print("Global data is up-to-date. Checking for missing tickers...")
 
-    # Step 2: Check for missing or outdated tickers
     missing_tickers = [ticker for ticker in tickers if ticker not in data["historical_data"]]
     outdated_tickers = [
         ticker for ticker in tickers if ticker in data["historical_data"] and 
         datetime.datetime.strptime(data["historical_data"][ticker]["last_updated"], "%Y-%m-%d").date() != end_date
     ]
 
-    tickers_to_update = missing_tickers + outdated_tickers  # Only the missing or outdated tickers need updating
+    tickers_to_update = missing_tickers + outdated_tickers
     print(f"Tickers to update: {tickers_to_update}")
 
-    # Fetch and update only the necessary tickers
     def fetch_data(tickers_batch, start_date, end_date):
+        global current_task
+        if current_task == 'get_current_prices':
+            print("get_current_prices is currently running. Skipping process_ticker_data.")
+            return
+        current_task = 'fetch_and_store_stock_data'
         tickers_string = " ".join(tickers_batch)
         try:
             data = yf.download(tickers=tickers_string, start=start_date, end=end_date, group_by='ticker')
@@ -163,7 +169,6 @@ def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.g
             current_task = None
             return None
 
-    # Fetch and update only the necessary tickers (missing or outdated)
     for tickers_batch in tickers_batches:
         tickers_batch_to_process = [ticker for ticker in tickers_batch if ticker in tickers_to_update]
         if tickers_batch_to_process:
@@ -173,11 +178,9 @@ def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.g
                     if ticker in ticker_data:
                         process_ticker_data(ticker, ticker_data[ticker], data, start_date, end_date)
 
-    # Step 4: Update global last updated date and save data
     data["global_last_updated"] = end_date.strftime("%Y-%m-%d")
     save_compressed(data, data_file)
 
-    # Step 5: Prepare the results in a structured format
     results = {}
     for ticker in tickers:
         if ticker in data["historical_data"] and data["historical_data"][ticker]["prices"]:
