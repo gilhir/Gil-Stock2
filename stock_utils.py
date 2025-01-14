@@ -143,8 +143,18 @@ def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.g
     missing_tickers = [ticker for ticker in tickers if ticker not in data["historical_data"]]
     outdated_tickers = [
         ticker for ticker in tickers if ticker in data["historical_data"] and 
-        datetime.datetime.strptime(data["historical_data"][ticker]["last_updated"], "%Y-%m-%d").date() != end_date
+        datetime.datetime.strptime(data["historical_data"][ticker]["prices"][-1][0], "%Y%m%d").date() != end_date
     ]
+    oldest_date = datetime.datetime.now().date()
+    for ticker in outdated_tickers:
+        last_date_str = data["historical_data"][ticker]["prices"][-1][0]
+        last_updated = datetime.datetime.strptime(last_date_str, "%Y%m%d").date()
+        if last_updated < oldest_date:
+            oldest_date = last_updated
+
+    start_date = oldest_date + datetime.timedelta(days=1)
+    print(start_date)
+    print(end_date)
 
     tickers_to_update = missing_tickers + outdated_tickers
     print(f"Tickers to update: {tickers_to_update}")
