@@ -139,12 +139,24 @@ def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.g
 
     if global_last_updated_date == end_date:
         print("Global data is up-to-date. Checking for missing tickers...")
-
+    print(tickers)
     missing_tickers = [ticker for ticker in tickers if ticker not in data["historical_data"]]
-    outdated_tickers = [
-        ticker for ticker in tickers if ticker in data["historical_data"] and 
-        datetime.datetime.strptime(data["historical_data"][ticker]["prices"][-1][0], "%Y%m%d").date() != end_date
-    ]
+    print(end_date)
+    outdated_tickers = []
+    for ticker in tickers:
+        if ticker in data["historical_data"]:
+            prices = data["historical_data"][ticker]["prices"]
+            if prices:
+                last_date = prices[-1][0]
+                last_date = datetime.datetime.strptime(last_date, "%Y%m%d").date()
+                if last_date != end_date:
+                    outdated_tickers.append(ticker)
+            else:
+                missing_tickers.append(ticker)
+
+    print(f'outdated{outdated_tickers}')
+    print(f'missing:{missing_tickers}')
+
     oldest_date = datetime.datetime.now().date()
     for ticker in outdated_tickers:
         last_date_str = data["historical_data"][ticker]["prices"][-1][0]
@@ -154,33 +166,11 @@ def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.g
 
     outdated_start_date = oldest_date + datetime.timedelta(days=1)
 
-    tickers_to_update = missing_tickers + outdated_tickers
-    print(f"Tickers to update: {tickers_to_update}")
-
-    def fetch_data(tickers_batch, start_date, end_date):
-        global current_task
-        if current_task == 'get_current_prices':
-            print("get_current_prices is currently running. Skipping process_ticker_data.")
-            return
-        current_task = 'fetch_and_store_stock_data'
-        tickers_string = " ".join(tickers_batch)
-        try:
-            data = yf.download(tickers=tickers_string, start=start_date, end=end_date, group_by='ticker')
-            if data.empty:
-                print(f"Warning: No data fetched for batch {tickers_batch}")
-                current_task = None
-                return None
-            current_task = None
-            return data
-        except Exception as e:
-            print(f"Error fetching data for batch {tickers_batch}: {e}")
-            current_task = None
-            return None
-
     for tickers_batch in tickers_batches:
         tickers_batch_to_process = [ticker for ticker in tickers_batch if ticker in missing_tickers]
         if tickers_batch_to_process:
             ticker_data = fetch_data(tickers_batch_to_process, start_date, end_date)
+            print(tickers_batch_to_process,ticker_data)
             if ticker_data is not None:
                 for ticker in tickers_batch_to_process:
                     if ticker in ticker_data:
@@ -210,6 +200,25 @@ def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.g
     current_task = None
     return results
 
+def fetch_data(tickers_batch, start_date, end_date):
+        global current_task
+        current_task = 'fetch_and_store_stock_data'
+        if current_task == 'get_current_prices':
+            print("get_current_prices is currently running. Skipping process_ticker_data.")
+            return
+        tickers_string = " ".join(tickers_batch)
+        try:
+            data = yf.download(tickers=tickers_string, start=start_date, end=end_date, group_by='ticker')
+            if data.empty:
+                print(f"Warning: No data fetched for batch {tickers_batch}")
+                current_task = None
+                return None
+            current_task = None
+            return data
+        except Exception as e:
+            print(f"Error fetching data for batch {tickers_batch}: {e}")
+            current_task = None
+            return None
 
 def check_upward_trend(data, trend_days):
     rolling_average = data.rolling(window=150).mean()

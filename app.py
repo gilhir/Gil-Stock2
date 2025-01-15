@@ -85,7 +85,9 @@ def fetch_stocks(period):
             watch_list = clean_list(user_data[user_id].get("default_watch_list", ''))
             analysis_period = int(user_data[user_id].get("analysis_period", ''))
             watch_list_trend_days = int(user_data[user_id].get("watch_list_trend_days", ''))
+            print(f'fetch and store begon tickers:{tickers,watch_list}, period: {period+150}')
             tickers_data = stock_utils.fetch_and_store_stock_data(tickers + watch_list, period + 150)
+            print('fetch and store completed')
             results = {"portfolio": [], "watch_list": [], "missing": []}
             for ticker in set(tickers + watch_list):
                 if ticker in tickers:
