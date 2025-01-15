@@ -72,7 +72,6 @@ def clean_json(data):
 def clean_list(stocklist):
     stocklist = stocklist.split(',')
     ticker= list(set([ticker.strip() for ticker in stocklist]))
-    print(ticker)
     return ticker
 
 @app.route('/fetch_stocks/<int:period>', methods=['GET'])
@@ -85,9 +84,7 @@ def fetch_stocks(period):
             watch_list = clean_list(user_data[user_id].get("default_watch_list", ''))
             analysis_period = int(user_data[user_id].get("analysis_period", ''))
             watch_list_trend_days = int(user_data[user_id].get("watch_list_trend_days", ''))
-            print(f'fetch and store begon tickers:{tickers,watch_list}, period: {period+150}')
             tickers_data = stock_utils.fetch_and_store_stock_data(tickers + watch_list, period + 150)
-            print('fetch and store completed')
             results = {"portfolio": [], "watch_list": [], "missing": []}
             for ticker in set(tickers + watch_list):
                 if ticker in tickers:
@@ -384,7 +381,6 @@ def stock_performance(user_id):
     try:
         days_passed = days_passed_since_start_of_year() + 1
         period = request.args.get('period')
-        print(request.args.get('period'))
         period_mapping = {
             '1day': 1,
             '2day':2,
@@ -401,11 +397,8 @@ def stock_performance(user_id):
         
         if period in ['from_beginning', 'since_bought']:
             days = 0
-            print('frombeggining')
-
         else:
             days = period_mapping.get(period, 10000)
-            print(f'else{days}')
             
         user_data = user_data_utils.load_user_data(user_id)
         if not user_data or user_id not in user_data:
@@ -421,7 +414,6 @@ def stock_performance(user_id):
         # Calculate performance and prepare the JSON response
         performance_data = {}
         for ticker in tickers:
-            print(ticker)
             purchase_data = heatmap_data.get(ticker, [{}])[0]
 
             if period in ['from_beginning', 'since_bought']:
@@ -431,13 +423,11 @@ def stock_performance(user_id):
                     dates = sorted(stock_data[ticker].keys())
                     date_days_ago = dates[-days] if len(dates) >= days else dates[0]
                     old_price = stock_data[ticker][date_days_ago]
-                    print(ticker,old_price,date_days_ago)
                 else:
                     old_price = 0
             
             new_price = float(current_prices.get(ticker, {}).get('current_price', 'Ticker not found'))
             percentage_change = ((new_price - old_price) / old_price) * 100 if old_price else 0
-            print(ticker,new_price)
 
             weight_data = purchase_data.get('weight', 0)
             percentage_diff = purchase_data.get('percentage_diff', 0)

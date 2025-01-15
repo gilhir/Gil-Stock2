@@ -51,9 +51,7 @@ def get_current_price(tickers):
     try:
         global current_task
         if current_task == 'fetch_and_store_stock_data':
-            print("fetch_and_store_stock_data is currently running. Skipping get_current_prices.")
             return {}
-        
         current_task = 'get_current_prices'
         tickers_yahoo = yf.Tickers(tickers)
         history = tickers_yahoo.history(period="1d")
@@ -65,11 +63,11 @@ def get_current_price(tickers):
             return formatted_prices
         else:
             current_task = None
-            return {ticker: {"current_price": "nan"} for ticker in tickers.split()}
+            return {ticker: {"current_price": "nan"} for ticker in tickers}
     except Exception as e:
         current_task = None
         print(f"Error fetching prices: {e}")
-        return {ticker: {"current_price": "nan"} for ticker in tickers.split()}
+        return {ticker: {"current_price": "nan"} for ticker in tickers}
 
 def validate_json_structure(data):
     required_keys = {"historical_data", "global_last_updated"}
@@ -82,15 +80,14 @@ def process_ticker_data(ticker, new_data, data, start_date, end_date):
     except ValueError as e:
         print(e)
         return
-
+    print(f'Adding data for: {ticker}')
+    
     stored_data = data["historical_data"].get(ticker, {"prices": [], "last_updated": None})
     last_updated = stored_data.get("last_updated")
     last_updated_date = (
         datetime.datetime.strptime(last_updated, "%Y-%m-%d").date() if last_updated else None
     )
-    if last_updated_date == end_date:
-        return
-
+    
     if new_data is None or new_data.empty:
         print(f"Warning: No valid data fetched for ticker {ticker}")
         return
@@ -100,21 +97,29 @@ def process_ticker_data(ticker, new_data, data, start_date, end_date):
         return
 
     existing_dates = {entry[0] for entry in stored_data["prices"]}
+    print(f'New data received for {ticker}:')
+
     for date, row in new_data.iterrows():
         date_str = date.strftime("%Y%m%d")
-        if date_str not in existing_dates and not pd.isna(row["Close"]):
-            stored_data["prices"].append([date_str, round(row["Close"], 2)])
+        close_value = row["Close"]
+        if date_str not in existing_dates and not pd.isna(close_value):
+            stored_data["prices"].append([date_str, round(close_value, 2)])
+        else:
+            if date_str in existing_dates:
+                print(f'Duplicate data found for {ticker} on {date_str}, skipping.')
+            elif pd.isna(close_value):
+                print(f'NaN Close value for {ticker} on {date_str}, skipping.')
 
     stored_data["last_updated"] = end_date.strftime("%Y-%m-%d")
-
-    stored_data["prices"] = [
-        entry for entry in stored_data["prices"]
-        if datetime.datetime.strptime(entry[0], "%Y%m%d").date() >= start_date
-    ]
 
     stored_data["prices"] = stored_data["prices"][-700:]
 
     data["historical_data"][ticker] = stored_data
+
+    data_file="optimized_data.json.gz"
+    save_compressed(data, data_file)
+
+
 
 def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.gz"):
     try:
@@ -126,7 +131,7 @@ def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.g
         return
 
     end_date = datetime.datetime.now().date()
-    start_date = end_date - datetime.timedelta(days=period + 150)
+    start_date = datetime.datetime.now().date() - datetime.timedelta(days=period + 150)
 
     batch_size = 100
     tickers_batches = [tickers[i:i + batch_size] for i in range(0, len(tickers), batch_size)]
@@ -139,38 +144,46 @@ def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.g
 
     if global_last_updated_date == end_date:
         print("Global data is up-to-date. Checking for missing tickers...")
-    print(tickers)
+    import pytz
+    ny_tz = pytz.timezone('America/New_York')
+    ny_time = datetime.datetime.now(ny_tz)
+    if ny_time.hour < 16:
+        oldest_date = (ny_time - datetime.timedelta(days=1)).date()
+    else:
+        oldest_date = ny_time.date()
     missing_tickers = [ticker for ticker in tickers if ticker not in data["historical_data"]]
-    print(end_date)
     outdated_tickers = []
     for ticker in tickers:
         if ticker in data["historical_data"]:
             prices = data["historical_data"][ticker]["prices"]
             if prices:
-                last_date = prices[-1][0]
-                last_date = datetime.datetime.strptime(last_date, "%Y%m%d").date()
-                if last_date != end_date:
-                    outdated_tickers.append(ticker)
+                if len(prices) < period:
+                    missing_tickers.append(ticker)
+                else:
+                    last_date = prices[-1][0]
+                    last_date = datetime.datetime.strptime(last_date, "%Y%m%d").date()
+                    if last_date != oldest_date:
+                        print(ticker,'last price',last_date,'vs',oldest_date)
+                        outdated_tickers.append(ticker)
             else:
                 missing_tickers.append(ticker)
+        else:
+            missing_tickers.append(ticker)
 
     print(f'outdated{outdated_tickers}')
     print(f'missing:{missing_tickers}')
 
-    oldest_date = datetime.datetime.now().date()
     for ticker in outdated_tickers:
         last_date_str = data["historical_data"][ticker]["prices"][-1][0]
         last_updated = datetime.datetime.strptime(last_date_str, "%Y%m%d").date()
         if last_updated < oldest_date:
             oldest_date = last_updated
-
     outdated_start_date = oldest_date + datetime.timedelta(days=1)
 
     for tickers_batch in tickers_batches:
         tickers_batch_to_process = [ticker for ticker in tickers_batch if ticker in missing_tickers]
         if tickers_batch_to_process:
             ticker_data = fetch_data(tickers_batch_to_process, start_date, end_date)
-            print(tickers_batch_to_process,ticker_data)
             if ticker_data is not None:
                 for ticker in tickers_batch_to_process:
                     if ticker in ticker_data:
@@ -204,7 +217,6 @@ def fetch_data(tickers_batch, start_date, end_date):
         global current_task
         current_task = 'fetch_and_store_stock_data'
         if current_task == 'get_current_prices':
-            print("get_current_prices is currently running. Skipping process_ticker_data.")
             return
         tickers_string = " ".join(tickers_batch)
         try:

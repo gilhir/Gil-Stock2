@@ -133,6 +133,10 @@
                             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             The market is currently closed. Prices will not be updated until further notice.
                         </div>
+                        <div id="missing-tickers-notice" class="alert alert-danger text-center" style="display: none;" class="alert alert-warning alert-dismissible fade show mb-3" role="alert">
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            The market is currently closed. Prices will not be updated until further notice.
+                        </div>
                         <div class="row">
                             <div id="portfolio-container" class="row">
                             </div>
@@ -264,7 +268,6 @@ document.addEventListener('DOMContentLoaded', async (event) => {
             if (userData && userData[userId]) {
                 const analysis_period = userData[userId]['analysis_period'] || '';
                 loadingElement.style.display = 'flex';
-
                 const response = await fetch(`/fetch_stocks/${analysis_period}`);
                 if (!response.ok) {
                     throw new Error('Network response was not ok ' + response.statusText);
@@ -277,6 +280,7 @@ document.addEventListener('DOMContentLoaded', async (event) => {
                 renderResults(results);
                 initializeCharts(results.portfolio, '');
                 initializeCharts(results.watch_list, 'WatchList');
+                if (data.missing_tickers.length > 0) { showMissingTickers(data.missing_tickers); }
                 processPrices(results.portfolio, 'portfolio');
                 processPrices(results.watch_list, 'watchlist');
             } else {
@@ -291,7 +295,12 @@ document.addEventListener('DOMContentLoaded', async (event) => {
         loadingElement.style.display = 'none';
     }
 });
-
+function showMissingTickers(missingTickers) {
+            const missingtickersnotice = document.getElementById('missing-tickers-notice');
+            missingtickersnotice.style.display = 'block';
+            missingtickersnotice.style.opacity = '1';
+            missingtickersnotice.innerText = `The following tickers could not be found: ${missingTickers.map(ticker => `${ticker}`).join(' ,')}.`;
+        }
 function storeInitialPrices(results) {
     const prices = {};
     if (results.portfolio && Array.isArray(results.portfolio)) {
