@@ -507,7 +507,7 @@ async function init() {
                 }
                 const stockInfo = heatmapData[ticker] ? heatmapData[ticker][0] : null;
                 if (stockInfo) {
-                    console.log('Ticker:',ticker,'number of stocks',stockInfo.number_of_stocks,'price',stockData.price,'total value',totalValue)
+                    //console.log('Ticker:',ticker,'number of stocks',stockInfo.number_of_stocks,'price',stockData.price,'total value',totalValue)
                     totalValue += stockInfo.number_of_stocks * stockData.price;
                 }
             });

@@ -112,9 +112,14 @@ def process_ticker_data(ticker, new_data, data, start_date, end_date):
 
     stored_data["last_updated"] = end_date.strftime("%Y-%m-%d")
 
+    # Sort prices by date
+    stored_data["prices"].sort(key=lambda x: x[0])
+
+    # Limit to the last 700 entries
     stored_data["prices"] = stored_data["prices"][-700:]
 
     data["historical_data"][ticker] = stored_data
+    print(f'Final stored_data for {ticker}: {stored_data["prices"][-5:]}...')  # Print only the last 5 entries
 
     data_file="optimized_data.json.gz"
     save_compressed(data, data_file)
