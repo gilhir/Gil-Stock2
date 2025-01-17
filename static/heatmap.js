@@ -101,7 +101,7 @@ function updateVisualization(stockData) {
         .attr("x", d => Math.max(5, (d.x1 - d.x0) / 2))
         .attr("y", d => Math.max(19.5, (d.y1 - d.y0) / 2))
         .text(d => `${(d.data.value * 100).toFixed(2)}%`)
-        .attr("font-size", d => `${Math.max(3, Math.min((d.x1 - d.y0) / 18, (d.y1 - d.y0) / 18))}px`)
+        .attr("font-size", d => `${Math.max(3, Math.min((d.x1 - d.y0) / 12, (d.y1 - d.y0) / 12))}px`)
         .attr("fill", "#000")
         .attr("text-anchor", "middle");
 
@@ -123,7 +123,8 @@ async function loadHeatmap(userId) {
       const heatmapData = await heatmapDataResponse.json();
       const dailyPerformanceResponse = await fetch(`/stock_performance/${userId}?period=1day`);
       const dailyPerformance = await dailyPerformanceResponse.json();  
-      updateWidgets(heatmapData, dailyPerformance); 
+      const heatmaptickersData = heatmapData['ticker_data']
+      updateWidgets(heatmaptickersData, dailyPerformance); 
   
     } catch (error) {
       console.error('Error loading heatmap data:', error);

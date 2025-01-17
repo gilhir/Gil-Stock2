@@ -7,9 +7,11 @@ import user_data_utils
 import git
 import numpy as np
 import datetime
+from flask_apscheduler import APScheduler
 
 app = Flask(__name__, template_folder='templates')
 app.secret_key = 'your_secret_key_here'  # Required for flash messages
+scheduler = APScheduler()
 
 def clean_list(input_string):
     return list(dict.fromkeys([item.strip() for item in input_string.split(',') if item.strip()]))
@@ -206,7 +208,12 @@ def heatmap():
 @app.route('/heatmap_data/<user_id>', methods=['POST'])
 def update_heatmap_data(user_id):
     try:
-        ticker_data = request.get_json()  # Get the JSON data from the request
+        data = request.get_json()  # Get the JSON data from the request
+        print(data)
+        ticker_data = data.get("ticker_data", {})
+        print(ticker_data)
+        cash_flow = data.get("cash_flow", 0)  # Separate cash flow
+        print(ticker_data)
 
         tickers = list(ticker_data.keys())
         tickers_data = stock_utils.fetch_and_store_stock_data(tickers, 1)  # Fetch current stock prices
@@ -242,15 +249,20 @@ def update_heatmap_data(user_id):
                 entry['percentage_diff'] = combined_ticker_data[ticker]['percentage_diff']
                 entry['weight'] = combined_ticker_data[ticker]['weight']
 
-        # Save the ticker data to a file or database
+        # Save the ticker data to a file or database along with the separate cash flow
+        data_to_save = {
+            "ticker_data": ticker_data,
+            "cash_flow": cash_flow  # Save the separate cash flow value
+        }
         with open(f'heatmap_data_{user_id}.json', 'w') as f:
-            json.dump(ticker_data, f, indent=4)
+            json.dump(data_to_save, f, indent=4)
 
         return json.dumps({"message": "Data updated successfully"}), 200
 
     except Exception as e:
         print(f"DEBUG: Error saving heatmap data: {e}")
         return json.dumps({"error": str(e)}), 500
+
 
 
 @app.route('/heatmap_data/<user_id>/<ticker>', methods=['GET'])
@@ -260,6 +272,7 @@ def get_heatmap_data(user_id, ticker):
         if os.path.exists(file_path):
             with open(file_path, 'r') as f:
                 ticker_data = json.load(f)
+                ticker_data = ticker_data.get('ticker_data',{})
                 return json.dumps(ticker_data.get(ticker, []))
         return json.dumps([])
     except Exception as e:
@@ -280,7 +293,7 @@ def update_single_ticker_data(user_id, ticker):
             ticker_data = {}
 
         # Ensure the data for the ticker is a list
-        ticker_data[ticker] = data  # Directly assign the list
+        ticker_data["ticker_data"][ticker] = data  # Directly assign the list
 
         # Save the updated data back to the file
         with open(file_path, 'w') as f:
@@ -374,8 +387,6 @@ def days_passed_since_start_of_year():
 
     return days_passed
 
-
-        
 @app.route('/stock_performance/<user_id>', methods=['GET'])
 def stock_performance(user_id):
     try:
@@ -407,11 +418,13 @@ def stock_performance(user_id):
 
         tickers = user_data[user_id].get("default_tickers", "").split(",")
         tickers = [ticker.strip() for ticker in tickers if ticker.strip()]
+        print(tickers)
         stock_data = stock_utils.fetch_and_store_stock_data(tickers, days)
         current_prices = stock_utils.get_current_price(tickers)
+        print(current_prices)
         # Load weight data from heatmap data
         heatmap_data = load_heatmap_data(user_id)
-
+        heatmap_data = heatmap_data.get('ticker_data',{})
         # Calculate performance and prepare the JSON response
         performance_data = {}
         for ticker in tickers:
@@ -422,6 +435,10 @@ def stock_performance(user_id):
             else:
                 if ticker in stock_data:
                     dates = sorted(stock_data[ticker].keys())
+                    today = datetime.datetime.now().strftime('%Y-%m-%d')
+                    today_timestamp = pd.Timestamp(today)
+                    dates = [date for date in dates if date != today_timestamp]
+                    dates = [date for date in dates if date != today]
                     date_days_ago = dates[-days] if len(dates) >= days else dates[0]
                     old_price = stock_data[ticker][date_days_ago]
                 else:
@@ -455,10 +472,70 @@ def load_heatmap_data(user_id):
         print(f"DEBUG: Heatmap data file for user {user_id} not found.")
         return {}
 
-# Example usage:
-# heatmap_data = load_heatmap_data(user_id)
 
+def dailytracker():
+    user_ids = user_data_utils.get_all_user_ids()
+    for user_id in user_ids:
+        # Create an entry dictionary
+        entry = {
+            "date": datetime.datetime.now().strftime("%Y-%m-%d"),
+            "value": 0
+        }
+
+        total_value = 0
+
+        heatmap_data = load_heatmap_data(user_id)
+        ticker_data = heatmap_data.get('ticker_data', {})
+        user_cashflow = float(heatmap_data.get('cash_flow', 0))
+        tickers = ticker_data.keys()
+
+        current_prices = stock_utils.get_current_price(list(tickers))
+
+        for ticker, stock_list in ticker_data.items():
+            for stock in stock_list:
+                number_of_stocks = stock['number_of_stocks']
+                current_price = float(current_prices.get(ticker, {}).get('current_price', 0))  # Get the actual price as a float
+                total_value += number_of_stocks * current_price
+                print(f'userid:{user_id}, ticker:{ticker}, currentprice {current_price}, number of stocks{number_of_stocks}, total value{number_of_stocks * current_price}')
+
+        total_value += user_cashflow
+
+        entry['value'] = total_value
+
+        # JSON file path based on user_id
+        json_file_path = f'heatmap_data_{user_id}.json'
+
+        # Read existing entries from the JSON file
+        try:
+            with open(json_file_path, 'r') as file:
+                data = json.load(file)
+                if not isinstance(data, dict):
+                    data = {"history": []}  # Initialize as an empty history list if data is not a dictionary
+        except FileNotFoundError:
+            data = {"history": []}
+
+        # Replace the entry for today if it exists, otherwise append it
+        history = data.setdefault('history', [])
+        for i, existing_entry in enumerate(history):
+            if existing_entry['date'] == entry['date']:
+                history[i] = entry
+                break
+        else:
+            history.append(entry)
+
+        # Write updated data back to the JSON file
+        with open(json_file_path, 'w') as file:
+            json.dump(data, file, indent=4)
+
+    return
+dailytracker()
+
+scheduler.add_job(func=dailytracker, trigger='cron', hour=23, minute=55, id='dailytracker')
+
+# Schedule the dailytracker function to run every day at 23:50
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
+    scheduler.init_app(app)
+    scheduler.start()
     app.run(host="0.0.0.0", port=port)

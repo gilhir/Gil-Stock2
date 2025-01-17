@@ -5,6 +5,7 @@ import pandas as pd
 import gzip
 import pandas_market_calendars as mcal
 import json
+import pytz
 
 
 def save_compressed(data, filename):
@@ -20,15 +21,20 @@ def load_compressed(filename):
     with gzip.open(filename, "rt", encoding="utf-8") as f:
         return json.load(f)
     
-def market_is_open_now(date):
-    now = datetime.datetime.now()
+def market_is_open_now(date, tz='America/New_York'):
+    ny_tz = pytz.timezone(tz)
+    now = datetime.datetime.now(ny_tz)
     result = mcal.get_calendar("NYSE").schedule(start_date=now.date(), end_date=date)
+
     if result.empty:
         return False
-    market_open = result.iloc[0]['market_open'].time()
-    market_close = result.iloc[0]['market_close'].time()
+
+    market_open = result.iloc[0]['market_open'].tz_convert(ny_tz).time()
+    market_close = result.iloc[0]['market_close'].tz_convert(ny_tz).time()
     current_time = now.time()
+
     return market_open <= current_time < market_close
+
 
 def market_is_open(date):
     result = mcal.get_calendar("NYSE").schedule(start_date=date, end_date=date)
@@ -149,7 +155,6 @@ def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.g
 
     if global_last_updated_date == end_date:
         print("Global data is up-to-date. Checking for missing tickers...")
-    import pytz
     ny_tz = pytz.timezone('America/New_York')
     ny_time = datetime.datetime.now(ny_tz)
     if ny_time.hour < 16:
@@ -167,7 +172,7 @@ def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.g
                 else:
                     last_date = prices[-1][0]
                     last_date = datetime.datetime.strptime(last_date, "%Y%m%d").date()
-                    if last_date != oldest_date:
+                    if last_date < oldest_date:
                         print(ticker,'last price',last_date,'vs',oldest_date)
                         outdated_tickers.append(ticker)
             else:

@@ -470,6 +470,7 @@ async function init() {
             await fetchWithRetry(`/fetch_stocks/${period}`),
             await fetchWithRetry(`/heatmap_data/${userId}`),
         ]);
+        const heatmaptickersData = heatmapData['ticker_data']
         if(period == 150){
         await fetchStockPerformance('since_bought');
         }else{
@@ -506,7 +507,7 @@ async function init() {
                 if (!stockData) {
                     stockData = { price: getPreviousPrice(seriesData, ticker, date) };
                 }
-                const stockInfo = heatmapData[ticker] ? heatmapData[ticker][0] : null;
+                const stockInfo = heatmaptickersData[ticker] ? heatmaptickersData[ticker][0] : null;
                 if (stockInfo) {
                     //console.log('Ticker:',ticker,'number of stocks',stockInfo.number_of_stocks,'price',stockData.price,'total value',totalValue)
                     totalValue += stockInfo.number_of_stocks * stockData.price;
