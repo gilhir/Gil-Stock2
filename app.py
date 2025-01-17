@@ -485,6 +485,8 @@ def dailytracker():
         total_value = 0
 
         heatmap_data = load_heatmap_data(user_id)
+        if not heatmap_data:
+            continue
         ticker_data = heatmap_data.get('ticker_data', {})
         user_cashflow = float(heatmap_data.get('cash_flow', 0))
         tickers = ticker_data.keys()
