@@ -218,7 +218,6 @@ def update_heatmap_data(user_id):
         combined_ticker_data = {}
         for ticker, entries in ticker_data.items():
             current_price = float(tickers_data.get(ticker, {}).get('current_price', 0))
-            print(ticker, current_price)
             total_number_of_stocks = sum(entry['number_of_stocks'] for entry in entries)
             total_cash_in_market = total_number_of_stocks * current_price  # Calculate total_cash_in_market based on current_price
             percentage_diffs = [((current_price - entry['purchase_price']) / entry['purchase_price']) * 100 if entry['purchase_price'] != 0 else 0 for entry in entries]
@@ -424,10 +423,8 @@ def stock_performance(user_id):
 
         tickers = user_data[user_id].get("default_tickers", "").split(",")
         tickers = [ticker.strip() for ticker in tickers if ticker.strip()]
-        print(tickers)
         stock_data = stock_utils.fetch_and_store_stock_data(tickers, days)
         current_prices = stock_utils.get_current_price(tickers)
-        print(current_prices)
         # Load weight data from heatmap data
         heatmap_data = load_heatmap_data(user_id)
         heatmap_data = heatmap_data.get('ticker_data',{})
@@ -504,7 +501,6 @@ def dailytracker():
                 number_of_stocks = stock['number_of_stocks']
                 current_price = float(current_prices.get(ticker, {}).get('current_price', 0))  # Get the actual price as a float
                 total_value += number_of_stocks * current_price
-                print(f'userid:{user_id}, ticker:{ticker}, currentprice {current_price}, number of stocks{number_of_stocks}, total value{number_of_stocks * current_price}')
 
         total_value += user_cashflow
 
