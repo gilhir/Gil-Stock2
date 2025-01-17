@@ -384,6 +384,7 @@ def stock_performance(user_id):
         period_mapping = {
             '1day': 1,
             '2day':2,
+            '1week': 7,
             '5days': 5,
             '1month': 30,
             '3months': 90,
