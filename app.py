@@ -209,19 +209,16 @@ def heatmap():
 def update_heatmap_data(user_id):
     try:
         data = request.get_json()  # Get the JSON data from the request
-        print(data)
         ticker_data = data.get("ticker_data", {})
-        print(ticker_data)
         cash_flow = data.get("cash_flow", 0)  # Separate cash flow
-        print(ticker_data)
 
         tickers = list(ticker_data.keys())
-        tickers_data = stock_utils.fetch_and_store_stock_data(tickers, 1)  # Fetch current stock prices
-
+        tickers_data = stock_utils.get_current_price(tickers)  # Fetch current stock prices
         # Combine entries for the same stock and get current prices
         combined_ticker_data = {}
         for ticker, entries in ticker_data.items():
-            current_price = tickers_data[ticker].iloc[-1] if ticker in tickers_data and not tickers_data[ticker].empty else 0
+            current_price = float(tickers_data.get(ticker, {}).get('current_price', 0))
+            print(ticker, current_price)
             total_number_of_stocks = sum(entry['number_of_stocks'] for entry in entries)
             total_cash_in_market = total_number_of_stocks * current_price  # Calculate total_cash_in_market based on current_price
             percentage_diffs = [((current_price - entry['purchase_price']) / entry['purchase_price']) * 100 if entry['purchase_price'] != 0 else 0 for entry in entries]
@@ -249,20 +246,29 @@ def update_heatmap_data(user_id):
                 entry['percentage_diff'] = combined_ticker_data[ticker]['percentage_diff']
                 entry['weight'] = combined_ticker_data[ticker]['weight']
 
-        # Save the ticker data to a file or database along with the separate cash flow
-        data_to_save = {
-            "ticker_data": ticker_data,
-            "cash_flow": cash_flow  # Save the separate cash flow value
-        }
-        with open(f'heatmap_data_{user_id}.json', 'w') as f:
-            json.dump(data_to_save, f, indent=4)
+        # Read existing data from the JSON file to preserve history
+        json_file_path = f'heatmap_data_{user_id}.json'
+        try:
+            with open(json_file_path, 'r') as f:
+                existing_data = json.load(f)
+        except FileNotFoundError:
+            existing_data = {}
+
+        # Preserve existing history and add new data
+        history = existing_data.get('history', [])
+        existing_data['ticker_data'] = ticker_data
+        existing_data['cash_flow'] = cash_flow
+        existing_data['history'] = history  # Preserve history
+
+        # Save the updated data back to the JSON file
+        with open(json_file_path, 'w') as f:
+            json.dump(existing_data, f, indent=4)
 
         return json.dumps({"message": "Data updated successfully"}), 200
 
     except Exception as e:
         print(f"DEBUG: Error saving heatmap data: {e}")
         return json.dumps({"error": str(e)}), 500
-
 
 
 @app.route('/heatmap_data/<user_id>/<ticker>', methods=['GET'])
