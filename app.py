@@ -417,7 +417,14 @@ def stock_performance(user_id):
             days = 0
         else:
             days = period_mapping.get(period, 10000)
-            
+        
+        if (days == 1):
+            current_date = datetime.datetime.now().date()
+            days = 1
+            while not stock_utils.market_is_open(current_date):
+                current_date += datetime.timedelta(days=-1)
+                days +=1
+        
         user_data = user_data_utils.load_user_data(user_id)
         if not user_data or user_id not in user_data:
             return json.dumps({'error': 'User ID not found'}), 404
