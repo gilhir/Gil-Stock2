@@ -85,52 +85,79 @@ def process_ticker_data(ticker, new_data, data, start_date, end_date):
         validate_json_structure(data)
     except ValueError as e:
         print(e)
-        return    
-    stored_data = data["historical_data"].get(ticker, {"prices": [], "last_updated": None})
-    last_updated = stored_data.get("last_updated")
-    last_updated_date = (
-        datetime.datetime.strptime(last_updated, "%Y-%m-%d").date() if last_updated else None
-    )
+        return
     
+    stored_data = data["historical_data"].get(ticker, {"prices": [], "last_updated": None})
+
     if new_data is None or new_data.empty:
         return
 
     if "Close" not in new_data.columns:
         return
 
-    existing_dates = {entry[0] for entry in stored_data["prices"]}
+    existing_dates = set(date_str for date_str, _ in stored_data["prices"])
 
-    for date, row in new_data.iterrows():
-        date_str = date.strftime("%Y%m%d")
-        close_value = row["Close"]
-        if date_str not in existing_dates and not pd.isna(close_value):
-            stored_data["prices"].append([date_str, round(close_value, 2)])
+    def find_insert_position(prices, date_str):
+        """Find the insert position for a new date using binary search."""
+        date_strs = [price[0] for price in prices]
+        index = bisect_left(date_strs, date_str)
+        return index
 
+    new_prices = [
+        (date.strftime("%Y%m%d"), round(row["Close"], 2))
+        for date, row in new_data.iterrows()
+        if date.strftime("%Y%m%d") not in existing_dates and not pd.isna(row["Close"])
+    ]
+    
+    for new_date_str, new_price in new_prices:
+        insert_position = find_insert_position(stored_data["prices"], new_date_str)
+        stored_data["prices"].insert(insert_position, (new_date_str, new_price))
+    
+    stored_data["prices"] = stored_data["prices"][-700:]
     stored_data["last_updated"] = end_date.strftime("%Y-%m-%d")
 
-    # Sort prices by date
-    stored_data["prices"].sort(key=lambda x: x[0])
-
-    # Limit to the last 700 entries
-    stored_data["prices"] = stored_data["prices"][-700:]
-
     data["historical_data"][ticker] = stored_data
+    data = sort_historical_data(data)
+    save_compressed(data, "optimized_data.json.gz")
 
-    data_file="optimized_data.json.gz"
-    save_compressed(data, data_file)
 
+
+def sort_historical_data(data):
+    sorted_data = {}
+    for ticker in sorted(data.get("historical_data", {})):
+        sorted_data[ticker] = data["historical_data"][ticker]
+    data["historical_data"] = sorted_data
+    return data
 
 
 from concurrent.futures import ThreadPoolExecutor
 
+from bisect import bisect_left
+
+def find_closest_date(prices, target_date):
+    """Find the closest date in a sorted list of prices using binary search."""
+    date_strs = [price[0] for price in prices]
+    index = bisect_left(date_strs, target_date.strftime("%Y%m%d"))
+    if index < len(date_strs) and date_strs[index] == target_date.strftime("%Y%m%d"):
+        return index
+    elif index > 0:
+        return index - 1
+    else:
+        return -1
+
+
 def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.gz"):
     try:
         data = load_compressed(data_file)
-        validate_json_structure(data)  # Validate JSON structure
+        validate_json_structure(data)
     except (ValueError, json.JSONDecodeError) as e:
         print(f"Error loading data file: {e}")
-        os.remove(data_file)  # Delete the invalid file
+        os.remove(data_file)
         return
+
+    # Ensure 'historical_data' key exists in data
+    if "historical_data" not in data:
+        data["historical_data"] = {}
 
     end_date = datetime.datetime.now().date()
     start_date = datetime.datetime.now().date() - datetime.timedelta(days=period + 150)
@@ -144,42 +171,91 @@ def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.g
         if global_last_updated else None
     )
 
-    if global_last_updated_date == end_date:
-        print("Global data is up-to-date. Checking for missing tickers...")
     ny_tz = pytz.timezone('America/New_York')
     ny_time = datetime.datetime.now(ny_tz)
     if ny_time.hour < 16:
         oldest_date = (ny_time - datetime.timedelta(days=1)).date()
     else:
         oldest_date = ny_time.date()
-    missing_tickers = [ticker for ticker in tickers if ticker not in data["historical_data"]]
-    outdated_tickers = []
-    for ticker in tickers:
-        if ticker in data["historical_data"]:
-            prices = data["historical_data"][ticker]["prices"]
-            if prices:
-                if len(prices) < period:
-                    missing_tickers.append(ticker)
-                else:
-                    last_date = prices[-1][0]
-                    last_date = datetime.datetime.strptime(last_date, "%Y%m%d").date()
-                    if last_date < oldest_date:
-                        print(ticker,'last price',last_date,'vs',oldest_date)
-                        outdated_tickers.append(ticker)
+
+
+    def binary_search_ticker(tickers, target):
+        """Binary search to find the position of the target ticker."""
+        lo, hi = 0, len(tickers) - 1
+        while lo <= hi:
+            mid = (lo + hi) // 2
+            if tickers[mid] < target:
+                lo = mid + 1
+            elif tickers[mid] > target:
+                hi = mid - 1
             else:
-                missing_tickers.append(ticker)
-        else:
-            missing_tickers.append(ticker)
+                return mid
+        return -1
 
-    print(f'outdated{outdated_tickers}')
-    print(f'missing:{missing_tickers}')
+    def preprocess_historical_data(data):
+        processed_data = {}
+        tickers = list(data["historical_data"].keys())  # Assume tickers are already sorted
 
-    for ticker in outdated_tickers:
-        last_date_str = data["historical_data"][ticker]["prices"][-1][0]
-        last_updated = datetime.datetime.strptime(last_date_str, "%Y%m%d").date()
-        if last_updated < oldest_date:
-            oldest_date = last_updated
-    outdated_start_date = oldest_date + datetime.timedelta(days=1)
+        def process_ticker_batch(tickers_batch):
+            local_processed_data = {}
+            for ticker in tickers_batch:
+                index = binary_search_ticker(tickers, ticker)
+                if index != -1:
+                    ticker_data = data["historical_data"][tickers[index]]
+                    prices = ticker_data.get("prices", [])
+                    if prices:
+                        last_date_str = prices[-1][0]
+                        last_date = datetime.datetime.strptime(last_date_str, "%Y%m%d").date()
+                        local_processed_data[ticker] = (prices, last_date)
+            return local_processed_data
+
+        batch_size = 100  # Adjust as necessary
+        ticker_batches = [tickers[i:i + batch_size] for i in range(0, len(tickers), batch_size)]
+
+        with ThreadPoolExecutor() as executor:
+            futures = [executor.submit(process_ticker_batch, batch) for batch in ticker_batches]
+            for future in futures:
+                batch_result = future.result()
+                processed_data.update(batch_result)
+        
+        return processed_data
+
+
+    processed_data = preprocess_historical_data(data)
+
+    def identify_missing_outdated_tickers(tickers, processed_data, period, oldest_date):
+        missing_tickers = []
+        outdated_tickers = []
+
+        sorted_tickers = sorted(processed_data.keys())
+
+        def check_ticker(ticker):
+            index = binary_search_ticker(sorted_tickers, ticker)
+            if index == -1:
+                return 'missing', ticker, None
+            prices, last_date = processed_data[sorted_tickers[index]]
+            if len(prices) < period:
+                return 'missing', ticker, None
+            closest_date_index = find_closest_date(prices, oldest_date)
+            if closest_date_index == -1 or datetime.datetime.strptime(prices[closest_date_index][0], "%Y%m%d").date() < oldest_date:
+                return 'outdated', ticker, last_date
+            return None, None, None
+
+        with ThreadPoolExecutor() as executor:
+            futures = [executor.submit(check_ticker, ticker) for ticker in tickers]
+            for future in futures:
+                result_type, ticker, last_date = future.result()
+                if result_type == 'missing':
+                    missing_tickers.append(ticker)
+                elif result_type == 'outdated':
+                    outdated_tickers.append(ticker)
+                    if last_date and last_date < oldest_date:
+                        oldest_date = last_date
+
+        return missing_tickers, outdated_tickers, oldest_date
+
+
+    missing_tickers, outdated_tickers, oldest_date = identify_missing_outdated_tickers(tickers, processed_data, period, oldest_date)
 
     def process_ticker_batch(tickers_batch, start_date, end_date):
         batch_results = {}
@@ -190,6 +266,38 @@ def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.g
                     process_ticker_data(ticker, ticker_data[ticker], data, start_date, end_date)
                     batch_results[ticker] = ticker_data[ticker]
         return batch_results
+
+    def identify_missing_outdated_tickers_in_batches(tickers, processed_data, period, oldest_date):
+        missing_tickers = []
+        outdated_tickers = []
+
+        sorted_tickers = sorted(processed_data.keys())
+
+        def check_ticker_batch(tickers_batch):
+            for ticker in tickers_batch:
+                index = binary_search_ticker(sorted_tickers, ticker)
+                if index == -1:
+                    missing_tickers.append(ticker)
+                else:
+                    prices, last_date = processed_data[sorted_tickers[index]]
+                    if len(prices) < period:
+                        missing_tickers.append(ticker)
+                    closest_date_index = find_closest_date(prices, oldest_date)
+                    if closest_date_index == -1 or datetime.datetime.strptime(prices[closest_date_index][0], "%Y%m%d").date() < oldest_date:
+                        outdated_tickers.append(ticker)
+                        if last_date and last_date < oldest_date:
+                            oldest_date = last_date
+
+        batch_size = 100  # Adjust as necessary
+        ticker_batches = [tickers[i:i + batch_size] for i in range(0, len(tickers), batch_size)]
+
+        with ThreadPoolExecutor() as executor:
+            futures = [executor.submit(check_ticker_batch, batch) for batch in ticker_batches]
+            for future in futures:
+                future.result()
+
+        return missing_tickers, outdated_tickers, oldest_date
+
 
     with ThreadPoolExecutor() as executor:
         futures = []
@@ -214,10 +322,8 @@ def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.g
             )
             prices.index = pd.to_datetime(prices.index, format="%Y%m%d")
             results[ticker] = prices
-            
-    current_task = None
-    return results
 
+    return results
 
 def fetch_data(tickers_batch, start_date, end_date):
     global current_task

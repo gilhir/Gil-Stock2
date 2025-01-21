@@ -79,8 +79,6 @@ def clean_list(stocklist):
 
 from concurrent.futures import ThreadPoolExecutor
 
-from concurrent.futures import ThreadPoolExecutor
-
 @app.route('/fetch_stocks/<int:period>', methods=['GET'])
 def fetch_stocks(period):
     try:
