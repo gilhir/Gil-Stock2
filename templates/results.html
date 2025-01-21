@@ -293,6 +293,7 @@ document.addEventListener('DOMContentLoaded', async (event) => {
         console.error('There has been a problem with your fetch operation:', error);
     } finally {
         loadingElement.style.display = 'none';
+        fetchLatestPrices();
     }
 });
 function showMissingTickers(missingTickers) {
@@ -520,6 +521,7 @@ function storeInitialPrices(results) {
                         fetchLatestPrices();
                     }, timeUntilOpen);
                 } else {
+                    marketCheckInterval = setInterval(fetchLatestPrices, 7000);
                     marketClosedNotice.style.display = 'none';
                     marketClosedNotice.style.opacity = '0';
                 }
@@ -553,7 +555,13 @@ function storeInitialPrices(results) {
             }
 
             // Update chart if exists
-            const chart = charts[ticker + 'Chart'];
+            for (const key in charts) {
+                if (key.startsWith(ticker)) {
+                    charter = charts[key];
+                    break;
+                }
+            }
+            const chart = charter;
             if (chart) {
                 const labels = chart.data.labels;
                 const prices = chart.data.datasets[0].data;
@@ -575,10 +583,6 @@ function storeInitialPrices(results) {
         console.error('latestPrices is not an object');
     }
 }
-
-
-        fetchLatestPrices();
-        marketCheckInterval = setInterval(fetchLatestPrices, 7000);
          </script>
     </body>
 
