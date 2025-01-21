@@ -85,9 +85,7 @@ def process_ticker_data(ticker, new_data, data, start_date, end_date):
         validate_json_structure(data)
     except ValueError as e:
         print(e)
-        return
-    print(f'Adding data for: {ticker}')
-    
+        return    
     stored_data = data["historical_data"].get(ticker, {"prices": [], "last_updated": None})
     last_updated = stored_data.get("last_updated")
     last_updated_date = (
@@ -95,26 +93,18 @@ def process_ticker_data(ticker, new_data, data, start_date, end_date):
     )
     
     if new_data is None or new_data.empty:
-        print(f"Warning: No valid data fetched for ticker {ticker}")
         return
 
     if "Close" not in new_data.columns:
-        print(f"Error: Missing 'Close' column for ticker {ticker}")
         return
 
     existing_dates = {entry[0] for entry in stored_data["prices"]}
-    print(f'New data received for {ticker}:')
 
     for date, row in new_data.iterrows():
         date_str = date.strftime("%Y%m%d")
         close_value = row["Close"]
         if date_str not in existing_dates and not pd.isna(close_value):
             stored_data["prices"].append([date_str, round(close_value, 2)])
-        else:
-            if date_str in existing_dates:
-                print(f'Duplicate data found for {ticker} on {date_str}, skipping.')
-            elif pd.isna(close_value):
-                print(f'NaN Close value for {ticker} on {date_str}, skipping.')
 
     stored_data["last_updated"] = end_date.strftime("%Y-%m-%d")
 
@@ -125,12 +115,13 @@ def process_ticker_data(ticker, new_data, data, start_date, end_date):
     stored_data["prices"] = stored_data["prices"][-700:]
 
     data["historical_data"][ticker] = stored_data
-    print(f'Final stored_data for {ticker}: {stored_data["prices"][-5:]}...')  # Print only the last 5 entries
 
     data_file="optimized_data.json.gz"
     save_compressed(data, data_file)
 
 
+
+from concurrent.futures import ThreadPoolExecutor
 
 def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.gz"):
     try:
@@ -190,22 +181,26 @@ def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.g
             oldest_date = last_updated
     outdated_start_date = oldest_date + datetime.timedelta(days=1)
 
-    for tickers_batch in tickers_batches:
-        tickers_batch_to_process = [ticker for ticker in tickers_batch if ticker in missing_tickers]
-        if tickers_batch_to_process:
-            ticker_data = fetch_data(tickers_batch_to_process, start_date, end_date)
-            if ticker_data is not None:
-                for ticker in tickers_batch_to_process:
-                    if ticker in ticker_data:
-                        process_ticker_data(ticker, ticker_data[ticker], data, start_date, end_date)
-        tickers_batch_to_process = [ticker for ticker in tickers_batch if ticker in outdated_tickers]
-        if tickers_batch_to_process:
-            ticker_data = fetch_data(tickers_batch_to_process, outdated_start_date, end_date)
-            if ticker_data is not None:
-                for ticker in tickers_batch_to_process:
-                    if ticker in ticker_data:
-                        process_ticker_data(ticker, ticker_data[ticker], data, outdated_start_date, end_date)
-        
+    def process_ticker_batch(tickers_batch, start_date, end_date):
+        batch_results = {}
+        ticker_data = fetch_data(tickers_batch, start_date, end_date)
+        if ticker_data is not None:
+            for ticker in tickers_batch:
+                if ticker in ticker_data:
+                    process_ticker_data(ticker, ticker_data[ticker], data, start_date, end_date)
+                    batch_results[ticker] = ticker_data[ticker]
+        return batch_results
+
+    with ThreadPoolExecutor() as executor:
+        futures = []
+        for tickers_batch in tickers_batches:
+            tickers_batch_to_process = [ticker for ticker in tickers_batch if ticker in missing_tickers or ticker in outdated_tickers]
+            if tickers_batch_to_process:
+                future = executor.submit(process_ticker_batch, tickers_batch_to_process, start_date, end_date)
+                futures.append(future)
+
+        for future in futures:
+            future.result()
 
     data["global_last_updated"] = end_date.strftime("%Y-%m-%d")
     save_compressed(data, data_file)
@@ -223,24 +218,28 @@ def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.g
     current_task = None
     return results
 
+
 def fetch_data(tickers_batch, start_date, end_date):
-        global current_task
-        current_task = 'fetch_and_store_stock_data'
-        if current_task == 'get_current_prices':
-            return
-        tickers_string = " ".join(tickers_batch)
-        try:
-            data = yf.download(tickers=tickers_string, start=start_date, end=end_date, group_by='ticker')
-            if data.empty:
-                print(f"Warning: No data fetched for batch {tickers_batch}")
-                current_task = None
-                return None
-            current_task = None
-            return data
-        except Exception as e:
-            print(f"Error fetching data for batch {tickers_batch}: {e}")
+    global current_task
+    current_task = 'fetch_and_store_stock_data'
+    if current_task == 'get_current_prices':
+        return
+    tickers_string = " ".join(tickers_batch)
+    try:
+        data = yf.download(tickers=tickers_string, start=start_date, end=end_date, group_by='ticker')
+        # Remove rows with NaN prices
+        data = data.dropna()
+        if data.empty:
+            print(f"Warning: No data fetched for batch {tickers_batch}")
             current_task = None
             return None
+        current_task = None
+        return data
+    except Exception as e:
+        print(f"Error fetching data for batch {tickers_batch}: {e}")
+        current_task = None
+        return None
+
 
 def check_upward_trend(data, trend_days):
     rolling_average = data.rolling(window=150).mean()

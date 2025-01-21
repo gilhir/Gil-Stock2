@@ -77,30 +77,50 @@ def clean_list(stocklist):
     ticker= list(set([ticker.strip() for ticker in stocklist]))
     return ticker
 
+from concurrent.futures import ThreadPoolExecutor
+
+from concurrent.futures import ThreadPoolExecutor
+
 @app.route('/fetch_stocks/<int:period>', methods=['GET'])
 def fetch_stocks(period):
     try:
-            user_data, user_id, redirect_response = get_user_data_or_redirect()
-            if redirect_response:
-                return redirect_response
-            tickers = clean_list(user_data[user_id].get("default_tickers", ''))
-            watch_list = clean_list(user_data[user_id].get("default_watch_list", ''))
-            analysis_period = int(user_data[user_id].get("analysis_period", ''))
-            watch_list_trend_days = int(user_data[user_id].get("watch_list_trend_days", ''))
-            tickers_data = stock_utils.fetch_and_store_stock_data(tickers + watch_list, period + 150)
+        user_data, user_id, redirect_response = get_user_data_or_redirect()
+        if redirect_response:
+            return redirect_response
+        
+        tickers = clean_list(user_data[user_id].get("default_tickers", ''))
+        watch_list = clean_list(user_data[user_id].get("default_watch_list", ''))
+        analysis_period = int(user_data[user_id].get("analysis_period", ''))
+        watch_list_trend_days = int(user_data[user_id].get("watch_list_trend_days", ''))
+
+        # Use ThreadPoolExecutor to fetch and process data in parallel
+        with ThreadPoolExecutor() as executor:
+            tickers_data_future = executor.submit(stock_utils.fetch_and_store_stock_data, tickers + watch_list, period + 150)
+            tickers_data = tickers_data_future.result()
+
             results = {"portfolio": [], "watch_list": [], "missing": []}
+
+            futures = []
             for ticker in set(tickers + watch_list):
                 if ticker in tickers:
-                    stock_utils.process_ticker(ticker, tickers_data, results["portfolio"], period, missing_list=results["missing"])
+                    future = executor.submit(stock_utils.process_ticker, ticker, tickers_data, results["portfolio"], period, missing_list=results["missing"])
+                    futures.append(future)
                 if ticker in watch_list:
-                    stock_utils.process_ticker(ticker, tickers_data, results["watch_list"], period, watch_list_trend_days, missing_list=results["missing"])
-            clean_results = clean_json(results)
-            response = json.dumps({"results": clean_results, "missing_tickers": results["missing"], "user_id": user_id})
-            return app.response_class(response, content_type='application/json')
+                    future = executor.submit(stock_utils.process_ticker, ticker, tickers_data, results["watch_list"], period, watch_list_trend_days, results["missing"])
+                    futures.append(future)
+            
+            for future in futures:
+                future.result()
+
+        clean_results = clean_json(results)
+        response = json.dumps({"results": clean_results, "missing_tickers": results["missing"], "user_id": user_id})
+        return app.response_class(response, content_type='application/json')
 
     except Exception as e:
         print(f"DEBUG: Error processing request: {e}")
         return app.response_class(json.dumps({"error": str(e)}), content_type='application/json', status=400)
+
+
 
 
 @app.route('/latest_prices', methods=['GET'])
@@ -393,6 +413,8 @@ def days_passed_since_start_of_year():
 
     return days_passed
 
+from concurrent.futures import ThreadPoolExecutor
+
 @app.route('/stock_performance/<user_id>', methods=['GET'])
 def stock_performance(user_id):
     try:
@@ -400,7 +422,7 @@ def stock_performance(user_id):
         period = request.args.get('period')
         period_mapping = {
             '1day': 1,
-            '2day':2,
+            '2day': 2,
             '1week': 7,
             '5days': 5,
             '1month': 30,
@@ -412,30 +434,35 @@ def stock_performance(user_id):
             'alltime': 10000,  # Arbitrary large number for all time
         }
 
-        
         if period in ['from_beginning', 'since_bought']:
             days = 0
         else:
             days = period_mapping.get(period, 10000)
         
-        if (days == 1):
+        if days == 1:
             current_date = datetime.datetime.now().date()
             days = 1
             while not stock_utils.market_is_open(current_date):
                 current_date += datetime.timedelta(days=-1)
-                days +=1
-        
+                days += 1
+
         user_data = user_data_utils.load_user_data(user_id)
         if not user_data or user_id not in user_data:
             return json.dumps({'error': 'User ID not found'}), 404
 
-        tickers = user_data[user_id].get("default_tickers", "").split(",")
-        tickers = [ticker.strip() for ticker in tickers if ticker.strip()]
-        stock_data = stock_utils.fetch_and_store_stock_data(tickers, days)
-        current_prices = stock_utils.get_current_price(tickers)
+        tickers = [ticker.strip() for ticker in user_data[user_id].get("default_tickers", "").split(",") if ticker.strip()]
+        
+        # Utilize ThreadPoolExecutor to fetch data in parallel
+        with ThreadPoolExecutor() as executor:
+            stock_data_future = executor.submit(stock_utils.fetch_and_store_stock_data, tickers, days)
+            current_prices_future = executor.submit(stock_utils.get_current_price, tickers)
+            heatmap_data_future = executor.submit(load_heatmap_data, user_id)
+
+        stock_data = stock_data_future.result()
+        current_prices = current_prices_future.result()        
         # Load weight data from heatmap data
-        heatmap_data = load_heatmap_data(user_id)
-        heatmap_data = heatmap_data.get('ticker_data',{})
+        heatmap_data = heatmap_data_future.result().get('ticker_data', {})
+        
         # Calculate performance and prepare the JSON response
         performance_data = {}
         for ticker in tickers:
@@ -451,11 +478,11 @@ def stock_performance(user_id):
                     dates = [date for date in dates if date != today_timestamp]
                     dates = [date for date in dates if date != today]
                     date_days_ago = dates[-days] if len(dates) >= days else dates[0]
-                    old_price = stock_data[ticker][date_days_ago]
+                    old_price = stock_data[ticker].get(date_days_ago, 0)
                 else:
                     old_price = 0
-            
-            new_price = float(current_prices.get(ticker, {}).get('current_price', 'Ticker not found'))
+
+            new_price = float(current_prices.get(ticker, {}).get('current_price', 0))
             percentage_change = ((new_price - old_price) / old_price) * 100 if old_price else 0
 
             weight_data = purchase_data.get('weight', 0)
