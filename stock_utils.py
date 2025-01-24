@@ -7,6 +7,7 @@ import pandas_market_calendars as mcal
 import json
 import pytz
 
+current_task = None
 
 def save_compressed(data, filename):
     """Save data to a compressed JSON file."""
@@ -21,20 +22,16 @@ def load_compressed(filename):
     with gzip.open(filename, "rt", encoding="utf-8") as f:
         return json.load(f)
     
-def market_is_open_now(date, tz='America/New_York'):
-    ny_tz = pytz.timezone(tz)
-    now = datetime.datetime.now(ny_tz)
-    result = mcal.get_calendar("NYSE").schedule(start_date=now.date(), end_date=date)
-
-    if result.empty:
+def market_is_open_now(date):
+    nyse = mcal.get_calendar("NYSE")
+    current_date_ny = date.astimezone(pytz.timezone('America/New_York'))
+    schedule = nyse.schedule(start_date=current_date_ny.date(), end_date=current_date_ny.date())
+    if schedule.empty:
         return False
-
-    market_open = result.iloc[0]['market_open'].tz_convert(ny_tz).time()
-    market_close = result.iloc[0]['market_close'].tz_convert(ny_tz).time()
-    current_time = now.time()
-
-    return market_open <= current_time < market_close
-
+    market_open = schedule.iloc[0]['market_open'].astimezone(pytz.timezone('America/New_York')).time()
+    market_close = schedule.iloc[0]['market_close'].astimezone(pytz.timezone('America/New_York')).time()
+    current_time = current_date_ny.time()
+    return market_open <= current_time <= market_close
 
 def market_is_open(date):
     result = mcal.get_calendar("NYSE").schedule(start_date=date, end_date=date)
@@ -42,16 +39,21 @@ def market_is_open(date):
 
 def next_market_open():
     nyse = mcal.get_calendar("NYSE")
-    current_daten = datetime.datetime.now()
-    current_date = datetime.datetime.now().date()
-    if not market_is_open_now(current_daten):
-        current_date += datetime.timedelta(days=1)
-    while not market_is_open(current_date.strftime("%Y-%m-%d")):
-        current_date += datetime.timedelta(days=1)
-    next_open = nyse.schedule(start_date=current_date.strftime("%Y-%m-%d"), end_date=current_date.strftime("%Y-%m-%d"))
-    return next_open.iloc[0].market_open.strftime("%Y-%m-%d %H:%M:%S")
-
-current_task = None
+    current_daten = datetime.datetime.now(pytz.timezone('America/New_York'))
+    if market_is_open_now(current_daten):
+        return current_daten.strftime("%Y-%m-%d %H:%M:%S")
+    current_date_ny = current_daten.date()
+    # Check if market is already closed today
+    schedule = nyse.schedule(start_date=current_date_ny.strftime("%Y-%m-%d"), end_date=current_date_ny.strftime("%Y-%m-%d"))
+    if not schedule.empty:
+        market_close = schedule.iloc[0]['market_close'].astimezone(pytz.timezone('America/New_York')).time()
+        if current_daten.time() > market_close:
+            current_date_ny += datetime.timedelta(days=1)
+    while not market_is_open(current_date_ny.strftime("%Y-%m-%d")):
+        current_date_ny += datetime.timedelta(days=1)
+    next_open = nyse.schedule(start_date=current_date_ny.strftime("%Y-%m-%d"), end_date=current_date_ny.strftime("%Y-%m-%d"))
+    market_open_time = next_open.iloc[0]['market_open'].astimezone(pytz.timezone('America/New_York'))
+    return market_open_time.strftime("%Y-%m-%d %H:%M:%S")
 
 def get_current_price(tickers):
     try:

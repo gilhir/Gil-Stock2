@@ -118,15 +118,16 @@ def fetch_stocks(period):
         print(f"DEBUG: Error processing request: {e}")
         return app.response_class(json.dumps({"error": str(e)}), content_type='application/json', status=400)
 
-
-
+last_nan_detection_time = None
 
 @app.route('/latest_prices', methods=['GET'])
 def latest_prices():
+    global last_nan_detection_time
     try:
         user_data, user_id, redirect_response = get_user_data_or_redirect()
         if redirect_response:
             return json.dumps({'error': 'User ID is required'}), 400
+
         current_date = datetime.datetime.now()
         market_open = stock_utils.market_is_open_now(current_date)
 
@@ -134,16 +135,25 @@ def latest_prices():
         default_watch_list = clean_list(user_data[user_id].get("default_watch_list", ''))
         tickers = default_tickers + default_watch_list
         latest_prices = {}
+        
+        # Print to check if last NaN detection time is within the last minute
+        if last_nan_detection_time and (datetime.datetime.now() - last_nan_detection_time).total_seconds() < 240:
+            print("Skipping fetch due to API overwhelmed.")
+            return json.dumps({'market_status': 'open', 'error': 'NaN values detected previously, skipping fetch'}), 200
+
         latest_prices = stock_utils.get_current_price(tickers)
+        
+        # Check for NaN values in latest_prices
+        if any(price['current_price'] == 'nan' for price in latest_prices.values()):
+            last_nan_detection_time = datetime.datetime.now()
+            return json.dumps({'market_status': 'open', 'error': 'NaN values detected'}), 200
+
         if not market_open:
             next_open = stock_utils.next_market_open()
             return json.dumps({'market_status': 'closed', 'next_open': next_open, 'latest_prices': latest_prices}), 200
         else:
             return json.dumps({'market_status': 'open', 'latest_prices': latest_prices}), 200
-        
     except Exception as e:
-        print(f"DEBUG: Error fetching latest prices: {e}")
-        flash(f"An error occurred while fetching prices: {e}", "danger")
         return json.dumps({'error': str(e)}), 500
 
 
