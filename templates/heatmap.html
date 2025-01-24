@@ -389,81 +389,106 @@
                         .catch(error => console.error('Error fetching tickers:', error));
                 }
             }
-            function loadHeatmap(userId, tickers) {
-                fetch(`/heatmap_data/${userId}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        heatmapData = data['ticker_data']; // Initialize heatmapData with the fetched data
-                        cashflow = data['cash_flow'];
-                        const history = data['history']
-                        const heatmapContainer = document.getElementById('heatmap-container');
-                        const heatmap = document.getElementById('heatmap');
-                        const cashflowtb = document.getElementById('cashflowtb');
-                        cashflowtb.innerHTML= '';
-                        heatmap.innerHTML = ''; // Clear previous heatmap
-                        let totalCashInMarket = parseFloat(cashflow);
-                        // Iterate through each ticker and sum up total_cash_in_market values
-                        Object.values(heatmapData).forEach(tickerEntries => {
-                            tickerEntries.forEach(entry => {
-                                totalCashInMarket += parseFloat(entry.total_cash_in_market);
-                            });
-                        });
+            function loadHeatmap(userId, tickers, updatedCashflow) {
+    fetch(`/heatmap_data/${userId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Server response data:', data); // Log the entire response
+            
+            if (data && data['ticker_data']) {
+                heatmapData = data['ticker_data']; // Initialize heatmapData with the fetched data
+            } else {
+                console.error("ticker_data is missing in the response");
+                heatmapData = {};
+            }
 
-                        tickers.forEach(ticker => {
-                            let tickerData = heatmapData[ticker] || []; // Ensure tickerData is always an array
-                            if (!Array.isArray(tickerData)) {
-                                // Convert single object entry to array
-                                tickerData = [tickerData];
-                            }
-            
-                            // If no entries exist for this ticker, create an empty entry
-                            if (tickerData.length === 0) {
-                                const row = document.createElement('tr');
-                                row.innerHTML = `
-                                    <td>${ticker}</td>
-                                    <td><input type="number" class="form-control" name="${ticker}_number" value=""></td>
-                                    <td><input type="number" step="0.01" class="form-control" name="${ticker}_price" value=""></td>
-                                    <td><input type="text" class="form-control" name="${ticker}_current_price" value="" readonly></td>
-                                    <td><input type="text" class="form-control" name="${ticker}_percentage_diff" value="" readonly></td>
-                                    <td><input type="text" class="form-control" name="${ticker}_total_cash" value="" readonly></td>
-                                    <td><input type="text" class="form-control" name="${ticker}_weight" value="" readonly></td>
-                                    <td><button type="button" class="btn btn-secondary" onclick="openAddStockModal('${ticker}')">Add</button></td>
-                                    <td><button type="button" class="btn btn-danger" onclick="openSellStockModal('${ticker}')">Sell</button></td>
-                                `;
-                                heatmap.appendChild(row);
-                            } else {
-                                tickerData.forEach((entry, index) => {
-                                    const currentPrice = entry.current_price ? `$${entry.current_price.toFixed(2)}` : '';
-                                    const percentageDiff = entry.percentage_diff ? `${entry.percentage_diff.toFixed(2)}%` : '';
-            
-                                    const row = document.createElement('tr');
-                                    row.innerHTML = `
-                                        <td>${ticker}</td>
-                                        <td><input type="number" class="form-control" name="${ticker}_number" value="${entry.number_of_stocks || ''}"></td>
-                                        <td><input type="number" step="0.01" class="form-control" name="${ticker}_price" value="${entry.purchase_price || ''}"></td>
-                                        <td><input type="text" class="form-control" name="${ticker}_current_price" value="${currentPrice}" readonly></td>
-                                        <td><input type="text" class="form-control" name="${ticker}_percentage_diff" value="${percentageDiff}" readonly></td>
-                                        <td><input type="text" class="form-control" name="${ticker}_total_cash" value="${index === 0 ? `$${entry.total_cash_in_market.toFixed(2)}` : ''}" readonly></td>
-                                        <td><input type="text" class="form-control" name="${ticker}_weight" value="${index === 0 ? entry.weight.toFixed(2) : ''}" readonly></td>
-                                        <td><button type="button" class="btn btn-secondary" onclick="openAddStockModal('${ticker}')">Add</button></td>
-                                        <td><button type="button" class="btn btn-danger" onclick="openSellStockModal('${ticker}')">Sell</button></td>
-                                    `;
-                                    heatmap.appendChild(row);
-                                });
-                            }
+            cashflow = updatedCashflow || data['cash_flow']; // Use the updated cashflow if provided, otherwise use the fetched cashflow
+            const history = data['history'];
+            const heatmapContainer = document.getElementById('heatmap-container');
+            const heatmap = document.getElementById('heatmap');
+            const cashflowtb = document.getElementById('cashflowtb');
+            cashflowtb.innerHTML = '';
+            heatmap.innerHTML = ''; // Clear previous heatmap
+
+            console.log('heatmapData:', heatmapData);
+
+            if (Object.keys(heatmapData).length > 0) {
+                let totalCashInMarket = parseFloat(cashflow);
+                // Iterate through each ticker and sum up total_cash_in_market values
+                Object.values(heatmapData).forEach(tickerEntries => {
+                    tickerEntries.forEach(entry => {
+                        totalCashInMarket += parseFloat(entry.total_cash_in_market);
+                    });
+                });
+
+                tickers.forEach(ticker => {
+                    let tickerData = heatmapData[ticker] || []; // Ensure tickerData is always an array
+                    if (!Array.isArray(tickerData)) {
+                        // Convert single object entry to array
+                        tickerData = [tickerData];
+                    }
+
+                    // If no entries exist for this ticker, create an empty entry
+                    if (tickerData.length === 0) {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${ticker}</td>
+                            <td><input type="number" class="form-control" name="${ticker}_number" value=""></td>
+                            <td><input type="number" step="0.01" class="form-control" name="${ticker}_price" value=""></td>
+                            <td><input type="text" class="form-control" name="${ticker}_current_price" value="" readonly></td>
+                            <td><input type="text" class="form-control" name="${ticker}_percentage_diff" value="" readonly></td>
+                            <td><input type="text" class="form-control" name="${ticker}_total_cash" value="" readonly></td>
+                            <td><input type="text" class="form-control" name="${ticker}_weight" value="" readonly></td>
+                            <td><button type="button" class="btn btn-secondary" onclick="openAddStockModal('${ticker}')">Add</button></td>
+                            <td><button type="button" class="btn btn-danger" onclick="openSellStockModal('${ticker}')">Sell</button></td>
+                        `;
+                        heatmap.appendChild(row);
+                    } else {
+                        tickerData.forEach((entry, index) => {
+                            const currentPrice = entry.current_price ? `$${entry.current_price.toFixed(2)}` : '';
+                            const percentageDiff = entry.percentage_diff ? `${entry.percentage_diff.toFixed(2)}%` : '';
+
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td>${ticker}</td>
+                                <td><input type="number" class="form-control" name="${ticker}_number" value="${entry.number_of_stocks || ''}"></td>
+                                <td><input type="number" step="0.01" class="form-control" name="${ticker}_price" value="${entry.purchase_price || ''}"></td>
+                                <td><input type="text" class="form-control" name="${ticker}_current_price" value="${currentPrice}" readonly></td>
+                                <td><input type="text" class="form-control" name="${ticker}_percentage_diff" value="${percentageDiff}" readonly></td>
+                                <td><input type="text" class="form-control" name="${ticker}_total_cash" value="${index === 0 ? `$${entry.total_cash_in_market.toFixed(2)}` : ''}" readonly></td>
+                                <td><input type="text" class="form-control" name="${ticker}_weight" value="${index === 0 ? entry.weight.toFixed(2) : ''}" readonly></td>
+                                <td><button type="button" class="btn btn-secondary" onclick="openAddStockModal('${ticker}')">Add</button></td>
+                                <td><button type="button" class="btn btn-danger" onclick="openSellStockModal('${ticker}')">Sell</button></td>
+                            `;
+                            heatmap.appendChild(row);
                         });
-                        const cashrow = document.createElement('tr');
-                                cashrow.innerHTML = `
-                                    <td>Cashflow</td>
-                                    <td><input type="number" class="form-control" name="cashflow_number" value="${cashflow}"></td>
-                                    <td><input type="text" class="form-control" name="cashflow_current_price" value="${totalCashInMarket}" readonly></td>
-                                    <td><button type="button" class="btn btn-secondary" onclick="openAddCashModal('cashflow')">Add</button></td>
-                                    <td><button type="button" class="btn btn-danger" onclick="openAddCashModal('cashflow')">Pull</button></td>              
-                                `;
-                        cashflowtb.appendChild(cashrow);
-                    })
-            .catch(error => console.error('Error loading heatmap:', error));
-    }
+                    }
+                });
+
+                const cashrow = document.createElement('tr');
+                cashrow.innerHTML = `
+                    <td>Cashflow</td>
+                    <td><input type="number" class="form-control" name="cashflow_number" value="${cashflow}"></td>
+                    <td><input type="text" class="form-control" name="cashflow_current_price" value="${totalCashInMarket}" readonly></td>
+                    <td><button type="button" class="btn btn-secondary" onclick="openAddCashModal('cashflow')">Add</button></td>
+                    <td><button type="button" class="btn btn-danger" onclick="openAddCashModal('cashflow')">Pull</button></td>
+                `;
+                cashflowtb.appendChild(cashrow);
+            } else {
+                console.error("heatmapData is undefined or null");
+            }
+        })
+        .catch(error => console.error('Error loading heatmap:', error));
+}
+
+
+
+
     
     
             // Open Add Stock Modal
@@ -495,6 +520,11 @@
     
                 // Update the table with the new stock data
                 addStockToTable(ticker, shares, price);
+                const cashflowInput = document.getElementsByName('cashflow_number')[0];
+                let currentCashflow = parseFloat(cashflowInput.value) || 0;
+                currentCashflow -= shares * price;
+                cashflowInput.value = currentCashflow.toFixed(2);
+                console.log('Updated Cashflow Value:', cashflowInput.value);
     
                 // Close the modal
                 $('#addStockModal').modal('hide');
@@ -530,17 +560,18 @@
     
     // Add event listener to the form
     document.getElementById('sellStockForm').addEventListener('submit', function(event) {
-        event.preventDefault();
-        const ticker = document.getElementById('sellTicker').value;
-        const sharesToSell = parseInt(document.getElementById('sellShares').value, 10);
-        const sellPrice = parseFloat(document.getElementById('sellPrice').value);
+    event.preventDefault();
     
-        // Update the table and JSON data structure with the sold stocks
-        sellStock(ticker, sharesToSell);
+    const ticker = document.getElementById('sellTicker').value;
+    const sharesToSell = parseInt(document.getElementById('sellShares').value, 10);
+    const sellPrice = parseFloat(document.getElementById('sellPrice').value);
     
-        // Close the modal
-        $('#sellStockModal').modal('hide');
-    });
+    sellStock(ticker, sharesToSell,sellPrice);
+
+    // Close the modal
+    $('#sellStockModal').modal('hide');
+});
+
     
     document.getElementById('addCashForm').addEventListener('submit', function(event) {
     event.preventDefault();
@@ -563,55 +594,62 @@
     console.log(operation === 'pull' ? "pulling" : "adding", moneyamount);
     // Close the modal
     $('#addCashModal').modal('hide');
-});
+}); 
+function sellStock(ticker, sharesToSell, sellPrice) {
+    let remainingSharesToSell = sharesToSell;
+    let cashflow; // Define cashflow here
 
+    if (heatmapData[ticker]) {
+        // Start from the last entry and work backwards
+        for (let i = heatmapData[ticker].length - 1; i >= 0 && remainingSharesToSell > 0; i--) {
+            const entry = heatmapData[ticker][i];
 
-    // Function to handle selling stocks
-    function sellStock(ticker, sharesToSell) {
-        let remainingSharesToSell = sharesToSell;
-    
-        if (heatmapData[ticker]) {
-            // Start from the last entry and work backwards
-            for (let i = heatmapData[ticker].length - 1; i >= 0 && remainingSharesToSell > 0; i--) {
-                const entry = heatmapData[ticker][i];
-    
-                if (entry.number_of_stocks > remainingSharesToSell) {
-                    entry.number_of_stocks -= remainingSharesToSell;
-                    remainingSharesToSell = 0;
-                } else {
-                    remainingSharesToSell -= entry.number_of_stocks;
-                    entry.number_of_stocks = 0;
-                }
+            if (entry.number_of_stocks > remainingSharesToSell) {
+                entry.number_of_stocks -= remainingSharesToSell;
+                remainingSharesToSell = 0;
+            } else {
+                remainingSharesToSell -= entry.number_of_stocks;
+                entry.number_of_stocks = 0;
             }
-    
-            // Remove entries with zero stocks
-            heatmapData[ticker] = heatmapData[ticker].filter(entry => entry.number_of_stocks > 0);
-    
-            // If all shares are sold, remove the ticker from the table
-            if (heatmapData[ticker].length === 0) {
-                delete heatmapData[ticker];
-            }
-    
-            // Update the table
-            loadHeatmap(document.getElementById('user_id').value, Object.keys(heatmapData));
-    
-            // Send the updated data to the server
-            fetch(`/heatmap_data/${document.getElementById('user_id').value}/${ticker}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(heatmapData[ticker])
-            })
-            .then(response => response.json())
-            .then(data => {
-                console.log('Data updated successfully!');
-            })
-            .catch(error => console.error('Error updating data:', error));
         }
+
+        // Remove entries with zero stocks
+        heatmapData[ticker] = heatmapData[ticker].filter(entry => entry.number_of_stocks > 0);
+
+        // If all shares are sold, remove the ticker from the table
+        if (heatmapData[ticker].length === 0) {
+            delete heatmapData[ticker];
+        }
+
+        // Get the current cashflow value
+        const cashflowInput = document.getElementsByName('cashflow_number')[0];
+        let currentCashflow = parseFloat(cashflowInput.value) || 0;
+        currentCashflow += sellPrice * sharesToSell;
+        cashflowInput.value = currentCashflow.toFixed(2);
+        console.log('Updated Cashflow Value:', cashflowInput.value);
+
+        cashflow = currentCashflow; // Assign updated cashflow
+
+        // Update the table and pass the updated cashflow
+        loadHeatmap(document.getElementById('user_id').value, Object.keys(heatmapData), cashflow);
+
+        // Send the updated data to the server
+        fetch(`/heatmap_data/${document.getElementById('user_id').value}/${ticker}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(heatmapData[ticker])
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Data updated successfully!');
+        })
+        .catch(error => console.error('Error updating data:', error));
     }
-    
-    
+}
+
+ 
             function submitHeatmapData() {
                 const userId = document.getElementById('user_id').value;
                 const rows = document.querySelectorAll('#heatmap tr');
