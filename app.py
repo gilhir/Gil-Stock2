@@ -135,7 +135,6 @@ def latest_prices():
         default_watch_list = clean_list(user_data[user_id].get("default_watch_list", ''))
         tickers = default_tickers + default_watch_list
         latest_prices = {}
-        
         # Print to check if last NaN detection time is within the last minute
         if last_nan_detection_time and (datetime.datetime.now() - last_nan_detection_time).total_seconds() < 240:
             print("Skipping fetch due to API overwhelmed.")
