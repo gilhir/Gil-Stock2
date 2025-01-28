@@ -6,21 +6,36 @@ import gzip
 import pandas_market_calendars as mcal
 import json
 import pytz
+import threading
 
 current_task = None
 
-def save_compressed(data, filename):
-    """Save data to a compressed JSON file."""
-    with gzip.open(filename, "wt", encoding="utf-8") as f:
-        json.dump(data, f)
+# Add a lock for thread-safe data modifications
 
+def save_compressed(data, filename):
+    """Save data to a compressed Parquet file."""
+    df = pd.DataFrame({
+        'ticker': [t for t in data['historical_data'] for _ in data['historical_data'][t]['prices']],
+        'date': pd.to_datetime([d[0] for t in data['historical_data'] for d in data['historical_data'][t]['prices']]), 
+        'price': [d[1] for t in data['historical_data'] for d in data['historical_data'][t]['prices']]
+    })
+    df.to_parquet(filename, compression='gzip')
 
 def load_compressed(filename):
-    """Load data from a compressed JSON file."""
+    """Load data from a compressed Parquet file."""
     if not os.path.exists(filename):
         return {"global_last_updated": None, "historical_data": {}}
-    with gzip.open(filename, "rt", encoding="utf-8") as f:
-        return json.load(f)
+    df = pd.read_parquet(filename)
+    data = {"global_last_updated": None, "historical_data": {}}
+    if not df.empty:
+        grouped = df.groupby('ticker')
+        for ticker, group in grouped:
+            prices = list(zip(group['date'].dt.strftime('%Y%m%d'), group['price']))
+            data['historical_data'][ticker] = {
+                "prices": sorted(prices, key=lambda x: x[0]),
+                "last_updated": group['date'].max().strftime('%Y-%m-%d')
+            }
+    return data
     
 def market_is_open_now(date):
     nyse = mcal.get_calendar("NYSE")
@@ -55,7 +70,27 @@ def next_market_open():
     market_open_time = next_open.iloc[0]['market_open'].astimezone(pytz.timezone('America/New_York'))
     return market_open_time.strftime("%Y-%m-%d %H:%M:%S")
 
-def get_current_price(tickers):
+def get_last_market_open_date():
+    nyse = mcal.get_calendar("NYSE")
+    ny_tz = pytz.timezone('America/New_York')
+    current_date = datetime.datetime.now(ny_tz)
+    
+    # Check if market is open now
+    if market_is_open_now(current_date):
+        return current_date.date()
+    
+    # Get last market open day
+    lookback_days = 7
+    start_date = current_date.date() - datetime.timedelta(days=lookback_days)
+    schedule = nyse.schedule(start_date=start_date, end_date=current_date.date())
+    if not schedule.empty:
+        return schedule.iloc[-1]['market_close'].date()
+    return current_date.date() - datetime.timedelta(days=1)
+
+from typing import Dict, List, Optional, Any
+
+# Usage in fetch_and_store_stock_data:
+def get_current_price(tickers: List[str]) -> Dict[str, Dict[str, str]]:
     try:
         global current_task
         if current_task == 'fetch_and_store_stock_data':
@@ -88,7 +123,6 @@ def process_ticker_data(ticker, new_data, data, start_date, end_date):
     except ValueError as e:
         print(e)
         return
-    
     stored_data = data["historical_data"].get(ticker, {"prices": [], "last_updated": None})
 
     if new_data is None or new_data.empty:
@@ -149,9 +183,12 @@ def find_closest_date(prices, target_date):
 
 
 def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.gz"):
+    data_lock = threading.Lock()
     try:
-        data = load_compressed(data_file)
-        validate_json_structure(data)
+        with data_lock:
+            print('data is locked')
+            data = load_compressed(data_file)
+            validate_json_structure(data)
     except (ValueError, json.JSONDecodeError) as e:
         print(f"Error loading data file: {e}")
         os.remove(data_file)
@@ -172,13 +209,7 @@ def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.g
         datetime.datetime.strptime(global_last_updated, "%Y-%m-%d").date()
         if global_last_updated else None
     )
-
-    ny_tz = pytz.timezone('America/New_York')
-    ny_time = datetime.datetime.now(ny_tz)
-    if ny_time.hour < 16:
-        oldest_date = (ny_time - datetime.timedelta(days=1)).date()
-    else:
-        oldest_date = ny_time.date()
+    oldest_date = get_last_market_open_date()
 
 
     def binary_search_ticker(tickers, target):
@@ -265,7 +296,9 @@ def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.g
         if ticker_data is not None:
             for ticker in tickers_batch:
                 if ticker in ticker_data:
-                    process_ticker_data(ticker, ticker_data[ticker], data, start_date, end_date)
+                    with data_lock:
+                        print('data is locked')
+                        process_ticker_data(ticker, ticker_data[ticker], data, start_date, end_date)
                     batch_results[ticker] = ticker_data[ticker]
         return batch_results
 
@@ -300,20 +333,21 @@ def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.g
 
         return missing_tickers, outdated_tickers, oldest_date
 
-
     with ThreadPoolExecutor() as executor:
         futures = []
         for tickers_batch in tickers_batches:
-            tickers_batch_to_process = [ticker for ticker in tickers_batch if ticker in missing_tickers or ticker in outdated_tickers]
-            if tickers_batch_to_process:
-                future = executor.submit(process_ticker_batch, tickers_batch_to_process, start_date, end_date)
+            outdated_tickers_batch_to_process = [ticker for ticker in tickers_batch if ticker in outdated_tickers]
+            if outdated_tickers_batch_to_process:
+                future = executor.submit(process_ticker_batch, outdated_tickers_batch_to_process, start_date, end_date)
+                futures.append(future)
+            missing_tickers_batch_to_process = [ticker for ticker in tickers_batch if ticker in missing_tickers]
+            if missing_tickers_batch_to_process:
+                missing_start_date = datetime.datetime.now().date() - datetime.timedelta(days=period + 150)
+                future = executor.submit(process_ticker_batch, missing_tickers_batch_to_process, missing_start_date, end_date)
                 futures.append(future)
 
         for future in futures:
             future.result()
-
-    data["global_last_updated"] = end_date.strftime("%Y-%m-%d")
-    save_compressed(data, data_file)
 
     results = {}
     for ticker in tickers:
@@ -324,29 +358,36 @@ def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.g
             )
             prices.index = pd.to_datetime(prices.index, format="%Y%m%d")
             results[ticker] = prices
-
     return results
+
+import time
 
 def fetch_data(tickers_batch, start_date, end_date):
     global current_task
     current_task = 'fetch_and_store_stock_data'
-    if current_task == 'get_current_prices':
-        return
-    tickers_string = " ".join(tickers_batch)
-    try:
-        data = yf.download(tickers=tickers_string, start=start_date, end=end_date, group_by='ticker')
-        # Remove rows with NaN prices
-        data = data.dropna()
-        if data.empty:
-            print(f"Warning: No data fetched for batch {tickers_batch}")
-            current_task = None
-            return None
-        current_task = None
-        return data
-    except Exception as e:
-        print(f"Error fetching data for batch {tickers_batch}: {e}")
-        current_task = None
-        return None
+    max_retries = 3
+    retry_delay = 6  # seconds between retries
+
+    for attempt in range(max_retries):
+        try:
+            data = yf.download(
+                tickers=" ".join(tickers_batch),
+                start=start_date,
+                end=end_date,
+                group_by='ticker',
+                progress=False
+            )
+            if not data.empty:
+                current_task = None
+                return data
+            print(f"Empty data for {tickers_batch} (attempt {attempt+1})")
+        except Exception as e:
+            print(f"Attempt {attempt+1} failed: {e}")
+        if attempt < max_retries - 1:
+            time.sleep(retry_delay)
+    current_task = None
+    print(f"All retries failed for {tickers_batch}")
+    return None
 
 
 def check_upward_trend(data, trend_days):
