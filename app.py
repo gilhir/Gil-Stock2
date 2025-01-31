@@ -9,6 +9,8 @@ import numpy as np
 import datetime
 from flask_apscheduler import APScheduler
 import dailyjob
+import pytz
+
 
 app = Flask(__name__, template_folder='templates')
 app.secret_key = 'your_secret_key_here'  # Required for flash messages
@@ -447,12 +449,18 @@ def stock_performance(user_id):
             days = period_mapping.get(period, 10000)
         
         if days == 1:
-            current_date = datetime.datetime.now().date()
+            current_daten = datetime.datetime.now(pytz.timezone('America/New_York'))
+            print(current_daten)
+            print(stock_utils.market_is_open_now(current_daten))
             days = 1
-            while not stock_utils.market_is_open(current_date):
-                current_date += datetime.timedelta(days=-1)
-                days += 1
+            if not stock_utils.market_is_open_now(current_daten):
+                current_date = datetime.datetime.now().date()
+                while not stock_utils.market_is_open(current_date):
+                    print('not open',current_date)
+                    current_date += datetime.timedelta(days=-1)
+                    days += 1
 
+        print(days)
         user_data = user_data_utils.load_user_data(user_id)
         if not user_data or user_id not in user_data:
             return json.dumps({'error': 'User ID not found'}), 404

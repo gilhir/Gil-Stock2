@@ -198,8 +198,22 @@ def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.g
     if "historical_data" not in data:
         data["historical_data"] = {}
 
-    end_date = datetime.datetime.now().date()
-    start_date = datetime.datetime.now().date() - datetime.timedelta(days=period + 150)
+    ny_tz = pytz.timezone('America/New_York')
+    current_time_ny = datetime.datetime.now(ny_tz)
+    if market_is_open_now(current_time_ny):
+        # Find the last closed market date
+        nyse = mcal.get_calendar("NYSE")
+        start_date = current_time_ny.date() - datetime.timedelta(days=7)
+        end_date_search = current_time_ny.date() - datetime.timedelta(days=1)
+        schedule = nyse.schedule(start_date=start_date, end_date=end_date_search)
+        if schedule.empty:
+            end_date = end_date_search  # Fallback to yesterday even if not a trading day
+        else:
+            end_date = schedule.iloc[-1]['market_close'].date()
+    else:
+        end_date = current_time_ny.date()
+
+    start_date = end_date - datetime.timedelta(days=period + 150)
 
     batch_size = 100
     tickers_batches = [tickers[i:i + batch_size] for i in range(0, len(tickers), batch_size)]
@@ -375,7 +389,11 @@ def fetch_data(tickers_batch, start_date, end_date):
                 start=start_date,
                 end=end_date,
                 group_by='ticker',
-                progress=False
+                progress=False,
+                # Add these parameters to speed up:
+                threads=True,  # Parallelize downloads
+                timeout=10,    # Fail faster instead of waiting indefinitely
+                ignore_tz=True # Skip timezone alignment overhead
             )
             if not data.empty:
                 current_task = None
