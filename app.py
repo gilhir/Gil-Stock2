@@ -97,7 +97,6 @@ def fetch_stocks(period):
         with ThreadPoolExecutor() as executor:
             tickers_data_future = executor.submit(stock_utils.fetch_and_store_stock_data, tickers + watch_list, period + 150)
             tickers_data = tickers_data_future.result()
-
             results = {"portfolio": [], "watch_list": [], "missing": []}
 
             futures = []

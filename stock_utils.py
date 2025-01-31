@@ -212,7 +212,7 @@ def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.g
             end_date = schedule.iloc[-1]['market_close'].date()
     else:
         end_date = current_time_ny.date()
-
+    
     start_date = end_date - datetime.timedelta(days=period + 150)
 
     batch_size = 100
@@ -357,6 +357,7 @@ def fetch_and_store_stock_data(tickers, period, data_file="optimized_data.json.g
             missing_tickers_batch_to_process = [ticker for ticker in tickers_batch if ticker in missing_tickers]
             if missing_tickers_batch_to_process:
                 missing_start_date = datetime.datetime.now().date() - datetime.timedelta(days=period + 150)
+                print(end_date)
                 future = executor.submit(process_ticker_batch, missing_tickers_batch_to_process, missing_start_date, end_date)
                 futures.append(future)
 
@@ -381,7 +382,7 @@ def fetch_data(tickers_batch, start_date, end_date):
     current_task = 'fetch_and_store_stock_data'
     max_retries = 3
     retry_delay = 6  # seconds between retries
-
+    end_date += datetime.timedelta(days=1)
     for attempt in range(max_retries):
         try:
             data = yf.download(
